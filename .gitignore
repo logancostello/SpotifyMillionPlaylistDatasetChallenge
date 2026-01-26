@@ -209,4 +209,6 @@ __marimo__/
 # Additional
 .DS_Store
 data/
-given_files/
+given_files/raw/data
+given_files/challenge/challenge_set.json
+given_files/challenge/sample_submission.csv
