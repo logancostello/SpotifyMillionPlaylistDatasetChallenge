@@ -178,4 +178,6 @@ if __name__ == '__main__':
 
     funcs[sys.argv[1]](playlist_metadata, playlist_contents)
 
+    print(f"\nCreated test data for group {sys.argv[1]}")
+
     
