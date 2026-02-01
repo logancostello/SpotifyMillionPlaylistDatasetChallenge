@@ -2,11 +2,12 @@ import sys
 import pandas as pd
 import math
 
-NUM_TEST_PLAYLISTS = 1000
+NUM_TEST_PLAYLISTS = 250
+SEED = 123
 
 # Title, 0 tracks
 def create_test_set_1(playlist_metadata, playlist_contents):
-    test_playlists = playlist_metadata[(playlist_metadata["num_tracks"] >= 10) & (playlist_metadata["num_tracks"] <= 50)].sample(n=NUM_TEST_PLAYLISTS)
+    test_playlists = playlist_metadata[(playlist_metadata["num_tracks"] >= 10) & (playlist_metadata["num_tracks"] <= 50)].sample(n=NUM_TEST_PLAYLISTS, random_state=SEED)
     test_playlists["num_samples"] = 0
     test_playlists["num_holdouts"] = test_playlists["num_tracks"] - test_playlists["num_samples"]
 
@@ -20,7 +21,7 @@ def create_test_set_1(playlist_metadata, playlist_contents):
 
 # Title, 1 track, in order
 def create_test_set_2(playlist_metadata, playlist_contents):
-    test_playlists = playlist_metadata[(playlist_metadata["num_tracks"] >= 10) & (playlist_metadata["num_tracks"] <= 39)].sample(n=NUM_TEST_PLAYLISTS)
+    test_playlists = playlist_metadata[(playlist_metadata["num_tracks"] >= 10) & (playlist_metadata["num_tracks"] <= 39)].sample(n=NUM_TEST_PLAYLISTS, random_state=SEED)
     test_playlists["num_samples"] = 1
     test_playlists["num_holdouts"] = test_playlists["num_tracks"] - test_playlists["num_samples"]
 
@@ -35,8 +36,8 @@ def create_test_set_2(playlist_metadata, playlist_contents):
 # Title, 5 tracks, in order
 def create_test_set_3(playlist_metadata, playlist_contents):
     fitlered_playlists = playlist_metadata[(playlist_metadata["num_tracks"] >= 40) & (playlist_metadata["num_tracks"] <= 100)]
-    first_half = fitlered_playlists.sample(n=math.floor(NUM_TEST_PLAYLISTS * .360))
-    second_half = fitlered_playlists.sample(n=math.ceil(NUM_TEST_PLAYLISTS * .640))
+    first_half = fitlered_playlists.sample(n=math.floor(NUM_TEST_PLAYLISTS * .360), random_state=SEED)
+    second_half = fitlered_playlists.sample(n=math.ceil(NUM_TEST_PLAYLISTS * .640), random_state=SEED)
     test_playlists = pd.concat([first_half, second_half])
     test_playlists["num_samples"] = 5
     test_playlists["num_holdouts"] = test_playlists["num_tracks"] - test_playlists["num_samples"]
@@ -51,7 +52,7 @@ def create_test_set_3(playlist_metadata, playlist_contents):
 
 # No title, 5 tracks, in order
 def create_test_set_4(playlist_metadata, playlist_contents):
-    test_playlists = playlist_metadata[(playlist_metadata["num_tracks"] >= 40) & (playlist_metadata["num_tracks"] <= 100)].sample(n=NUM_TEST_PLAYLISTS)
+    test_playlists = playlist_metadata[(playlist_metadata["num_tracks"] >= 40) & (playlist_metadata["num_tracks"] <= 100)].sample(n=NUM_TEST_PLAYLISTS, random_state=SEED)
     test_playlists["name"] = ""
     test_playlists["num_samples"] = 5
     test_playlists["num_holdouts"] = test_playlists["num_tracks"] - test_playlists["num_samples"]
@@ -66,7 +67,7 @@ def create_test_set_4(playlist_metadata, playlist_contents):
 
 # Title, 10 tracks, in order
 def create_test_set_5(playlist_metadata, playlist_contents):
-    test_playlists = playlist_metadata[(playlist_metadata["num_tracks"] >= 40) & (playlist_metadata["num_tracks"] <= 100)].sample(n=NUM_TEST_PLAYLISTS)
+    test_playlists = playlist_metadata[(playlist_metadata["num_tracks"] >= 40) & (playlist_metadata["num_tracks"] <= 100)].sample(n=NUM_TEST_PLAYLISTS, random_state=SEED)
     test_playlists["num_samples"] = 10
     test_playlists["num_holdouts"] = test_playlists["num_tracks"] - test_playlists["num_samples"]
 
@@ -80,7 +81,7 @@ def create_test_set_5(playlist_metadata, playlist_contents):
 
 # No title, 10 tracks, in order
 def create_test_set_6(playlist_metadata, playlist_contents):
-    test_playlists = playlist_metadata[(playlist_metadata["num_tracks"] >= 40) & (playlist_metadata["num_tracks"] <= 100)].sample(n=NUM_TEST_PLAYLISTS)
+    test_playlists = playlist_metadata[(playlist_metadata["num_tracks"] >= 40) & (playlist_metadata["num_tracks"] <= 100)].sample(n=NUM_TEST_PLAYLISTS, random_state=SEED)
     test_playlists["name"] = ""
     test_playlists["num_samples"] = 10
     test_playlists["num_holdouts"] = test_playlists["num_tracks"] - test_playlists["num_samples"]
@@ -95,7 +96,7 @@ def create_test_set_6(playlist_metadata, playlist_contents):
 
 # Title, 25 tracks, in order
 def create_test_set_7(playlist_metadata, playlist_contents):
-    test_playlists = playlist_metadata[playlist_metadata["num_tracks"] >= 101].sample(n=NUM_TEST_PLAYLISTS)
+    test_playlists = playlist_metadata[playlist_metadata["num_tracks"] >= 101].sample(n=NUM_TEST_PLAYLISTS, random_state=SEED)
     test_playlists["num_samples"] = 25
     test_playlists["num_holdouts"] = test_playlists["num_tracks"] - test_playlists["num_samples"]
 
@@ -109,12 +110,12 @@ def create_test_set_7(playlist_metadata, playlist_contents):
 
 # Title, 25 tracks, random_order
 def create_test_set_8(playlist_metadata, playlist_contents):
-    test_playlists = playlist_metadata[playlist_metadata["num_tracks"] >= 101].sample(n=NUM_TEST_PLAYLISTS)
+    test_playlists = playlist_metadata[playlist_metadata["num_tracks"] >= 101].sample(n=NUM_TEST_PLAYLISTS, random_state=SEED)
     test_playlists["num_samples"] = 25
     test_playlists["num_holdouts"] = test_playlists["num_tracks"] - test_playlists["num_samples"]
 
     filtered_contents = test_playlists[["pid"]].merge(playlist_contents, on="pid", how="inner")
-    test_contents = filtered_contents.groupby("pid").sample(n=25).sort_values(["pid", "position"])
+    test_contents = filtered_contents.groupby("pid").sample(n=25, random_state=SEED).sort_values(["pid", "position"])
     holdout_contents = filtered_contents[~filtered_contents.set_index(["pid", "track_uri"]).index.isin(test_contents.set_index(["pid", "track_uri"]).index)]
 
     test_playlists.to_parquet("data/test/playlist_metadata.parquet", index=False)
@@ -123,7 +124,7 @@ def create_test_set_8(playlist_metadata, playlist_contents):
 
 # Title, 100 tracks, in order
 def create_test_set_9(playlist_metadata, playlist_contents):
-    test_playlists = playlist_metadata[playlist_metadata["num_tracks"] >= 150].sample(n=NUM_TEST_PLAYLISTS)
+    test_playlists = playlist_metadata[playlist_metadata["num_tracks"] >= 150].sample(n=NUM_TEST_PLAYLISTS, random_state=SEED)
     test_playlists["num_samples"] = 100
     test_playlists["num_holdouts"] = test_playlists["num_tracks"] - test_playlists["num_samples"]
 
@@ -137,12 +138,12 @@ def create_test_set_9(playlist_metadata, playlist_contents):
 
 # Title, 100 tracks, random_order
 def create_test_set_10(playlist_metadata, playlist_contents):
-    test_playlists = playlist_metadata[playlist_metadata["num_tracks"] >= 150].sample(n=NUM_TEST_PLAYLISTS)
+    test_playlists = playlist_metadata[playlist_metadata["num_tracks"] >= 150].sample(n=NUM_TEST_PLAYLISTS, random_state=SEED)
     test_playlists["num_samples"] = 100
     test_playlists["num_holdouts"] = test_playlists["num_tracks"] - test_playlists["num_samples"]
 
     filtered_contents = test_playlists[["pid"]].merge(playlist_contents, on="pid", how="inner")
-    test_contents = filtered_contents.groupby("pid").sample(n=100).sort_values(["pid", "position"])
+    test_contents = filtered_contents.groupby("pid").sample(n=100, random_state=SEED).sort_values(["pid", "position"])
     holdout_contents = filtered_contents[~filtered_contents.set_index(["pid", "track_uri"]).index.isin(test_contents.set_index(["pid", "track_uri"]).index)]
 
     test_playlists.to_parquet("data/test/playlist_metadata.parquet", index=False)
