@@ -61,3 +61,9 @@ def compute_clicks(prediction_df, holdout_df, playlist_metadata):
     clicks = eval_df["loc_first_correct"].mean()
     return clicks
 
+def compute_all_metrics(prediction_df, holdout_df, playlist_metadata):
+    r_prec = compute_r_prec(prediction_df, holdout_df, playlist_metadata)
+    ndcg = compute_ndcg(prediction_df, holdout_df, playlist_metadata)
+    clicks = compute_clicks(prediction_df, holdout_df, playlist_metadata)
+
+    return r_prec, ndcg, clicks

@@ -2,7 +2,7 @@ import sys
 import pandas as pd
 import math
 
-NUM_TEST_PLAYLISTS = 1000
+NUM_TEST_PLAYLISTS = 250
 SEED = 123
 
 # Title, 0 tracks
@@ -15,9 +15,9 @@ def create_test_set_1(playlist_metadata, playlist_contents):
     test_contents = filtered_contents[filtered_contents["position"] < 0]
     holdout_contents = filtered_contents[filtered_contents["position"] >= 0]
 
-    test_playlists.to_parquet("data/test/playlist_metadata.parquet", index=False)
-    test_contents.to_parquet("data/test/playlist_contents.parquet", index=False)
-    holdout_contents.to_parquet("data/test/holdout_contents.parquet", index=False)
+    test_playlists.to_parquet("data/test/1/playlist_metadata.parquet", index=False)
+    test_contents.to_parquet("data/test/1/playlist_contents.parquet", index=False)
+    holdout_contents.to_parquet("data/test/1/holdout_contents.parquet", index=False)
 
 # Title, 1 track, in order
 def create_test_set_2(playlist_metadata, playlist_contents):
@@ -29,9 +29,9 @@ def create_test_set_2(playlist_metadata, playlist_contents):
     test_contents = filtered_contents[filtered_contents["position"] < 1]
     holdout_contents = filtered_contents[filtered_contents["position"] >= 1]
 
-    test_playlists.to_parquet("data/test/playlist_metadata.parquet", index=False)
-    test_contents.to_parquet("data/test/playlist_contents.parquet", index=False)
-    holdout_contents.to_parquet("data/test/holdout_contents.parquet", index=False)
+    test_playlists.to_parquet("data/test/2/playlist_metadata.parquet", index=False)
+    test_contents.to_parquet("data/test/2/playlist_contents.parquet", index=False)
+    holdout_contents.to_parquet("data/test/2/holdout_contents.parquet", index=False)
 
 # Title, 5 tracks, in order
 def create_test_set_3(playlist_metadata, playlist_contents):
@@ -45,9 +45,9 @@ def create_test_set_3(playlist_metadata, playlist_contents):
     test_contents = filtered_contents[filtered_contents["position"] < 5]
     holdout_contents = filtered_contents[filtered_contents["position"] >= 5]
 
-    test_playlists.to_parquet("data/test/playlist_metadata.parquet", index=False)
-    test_contents.to_parquet("data/test/playlist_contents.parquet", index=False)
-    holdout_contents.to_parquet("data/test/holdout_contents.parquet", index=False)
+    test_playlists.to_parquet("data/test/3/playlist_metadata.parquet", index=False)
+    test_contents.to_parquet("data/test/3/playlist_contents.parquet", index=False)
+    holdout_contents.to_parquet("data/test/3/holdout_contents.parquet", index=False)
 
 # No title, 5 tracks, in order
 def create_test_set_4(playlist_metadata, playlist_contents):
@@ -60,9 +60,9 @@ def create_test_set_4(playlist_metadata, playlist_contents):
     test_contents = filtered_contents[filtered_contents["position"] < 5]
     holdout_contents = filtered_contents[filtered_contents["position"] >= 5]
 
-    test_playlists.to_parquet("data/test/playlist_metadata.parquet", index=False)
-    test_contents.to_parquet("data/test/playlist_contents.parquet", index=False)
-    holdout_contents.to_parquet("data/test/holdout_contents.parquet", index=False)
+    test_playlists.to_parquet("data/test/4/playlist_metadata.parquet", index=False)
+    test_contents.to_parquet("data/test/4/playlist_contents.parquet", index=False)
+    holdout_contents.to_parquet("data/test/4/holdout_contents.parquet", index=False)
 
 # Title, 10 tracks, in order
 def create_test_set_5(playlist_metadata, playlist_contents):
@@ -74,9 +74,9 @@ def create_test_set_5(playlist_metadata, playlist_contents):
     test_contents = filtered_contents[filtered_contents["position"] < 10]
     holdout_contents = filtered_contents[filtered_contents["position"] >= 10]
 
-    test_playlists.to_parquet("data/test/playlist_metadata.parquet", index=False)
-    test_contents.to_parquet("data/test/playlist_contents.parquet", index=False)
-    holdout_contents.to_parquet("data/test/holdout_contents.parquet", index=False)
+    test_playlists.to_parquet("data/test/5/playlist_metadata.parquet", index=False)
+    test_contents.to_parquet("data/test/5/playlist_contents.parquet", index=False)
+    holdout_contents.to_parquet("data/test/5/holdout_contents.parquet", index=False)
 
 # No title, 10 tracks, in order
 def create_test_set_6(playlist_metadata, playlist_contents):
@@ -89,9 +89,9 @@ def create_test_set_6(playlist_metadata, playlist_contents):
     test_contents = filtered_contents[filtered_contents["position"] < 10]
     holdout_contents = filtered_contents[filtered_contents["position"] >= 10]
 
-    test_playlists.to_parquet("data/test/playlist_metadata.parquet", index=False)
-    test_contents.to_parquet("data/test/playlist_contents.parquet", index=False)
-    holdout_contents.to_parquet("data/test/holdout_contents.parquet", index=False)
+    test_playlists.to_parquet("data/test/6/playlist_metadata.parquet", index=False)
+    test_contents.to_parquet("data/test/6/playlist_contents.parquet", index=False)
+    holdout_contents.to_parquet("data/test/6/holdout_contents.parquet", index=False)
 
 # Title, 25 tracks, in order
 def create_test_set_7(playlist_metadata, playlist_contents):
@@ -103,9 +103,9 @@ def create_test_set_7(playlist_metadata, playlist_contents):
     test_contents = filtered_contents[filtered_contents["position"] < 25]
     holdout_contents = filtered_contents[filtered_contents["position"] >= 25]
 
-    test_playlists.to_parquet("data/test/playlist_metadata.parquet", index=False)
-    test_contents.to_parquet("data/test/playlist_contents.parquet", index=False)
-    holdout_contents.to_parquet("data/test/holdout_contents.parquet", index=False)
+    test_playlists.to_parquet("data/test/7/playlist_metadata.parquet", index=False)
+    test_contents.to_parquet("data/test/7/playlist_contents.parquet", index=False)
+    holdout_contents.to_parquet("data/test/7/holdout_contents.parquet", index=False)
 
 # Title, 25 tracks, random_order
 def create_test_set_8(playlist_metadata, playlist_contents):
@@ -117,9 +117,9 @@ def create_test_set_8(playlist_metadata, playlist_contents):
     test_contents = filtered_contents.groupby("pid").sample(n=25, random_state=SEED).sort_values(["pid", "position"])
     holdout_contents = filtered_contents[~filtered_contents.set_index(["pid", "track_uri"]).index.isin(test_contents.set_index(["pid", "track_uri"]).index)]
 
-    test_playlists.to_parquet("data/test/playlist_metadata.parquet", index=False)
-    test_contents.to_parquet("data/test/playlist_contents.parquet", index=False)
-    holdout_contents.to_parquet("data/test/holdout_contents.parquet", index=False)
+    test_playlists.to_parquet("data/test/8/playlist_metadata.parquet", index=False)
+    test_contents.to_parquet("data/test/8/playlist_contents.parquet", index=False)
+    holdout_contents.to_parquet("data/test/8/holdout_contents.parquet", index=False)
 
 # Title, 100 tracks, in order
 def create_test_set_9(playlist_metadata, playlist_contents):
@@ -131,9 +131,9 @@ def create_test_set_9(playlist_metadata, playlist_contents):
     test_contents = filtered_contents[filtered_contents["position"] < 100]
     holdout_contents = filtered_contents[filtered_contents["position"] >= 100]
 
-    test_playlists.to_parquet("data/test/playlist_metadata.parquet", index=False)
-    test_contents.to_parquet("data/test/playlist_contents.parquet", index=False)
-    holdout_contents.to_parquet("data/test/holdout_contents.parquet", index=False)
+    test_playlists.to_parquet("data/test/9/playlist_metadata.parquet", index=False)
+    test_contents.to_parquet("data/test/9/playlist_contents.parquet", index=False)
+    holdout_contents.to_parquet("data/test/9/holdout_contents.parquet", index=False)
 
 # Title, 100 tracks, random_order
 def create_test_set_10(playlist_metadata, playlist_contents):
@@ -145,9 +145,9 @@ def create_test_set_10(playlist_metadata, playlist_contents):
     test_contents = filtered_contents.groupby("pid").sample(n=100, random_state=SEED).sort_values(["pid", "position"])
     holdout_contents = filtered_contents[~filtered_contents.set_index(["pid", "track_uri"]).index.isin(test_contents.set_index(["pid", "track_uri"]).index)]
 
-    test_playlists.to_parquet("data/test/playlist_metadata.parquet", index=False)
-    test_contents.to_parquet("data/test/playlist_contents.parquet", index=False)
-    holdout_contents.to_parquet("data/test/holdout_contents.parquet", index=False)
+    test_playlists.to_parquet("data/test/10/playlist_metadata.parquet", index=False)
+    test_contents.to_parquet("data/test/10/playlist_contents.parquet", index=False)
+    holdout_contents.to_parquet("data/test/10/holdout_contents.parquet", index=False)
 
 if __name__ == '__main__':
 
@@ -155,8 +155,8 @@ if __name__ == '__main__':
         print("usage: python create_train_test_split.py [challenge group num]")
         sys.exit()
 
-    if int(sys.argv[1]) not in range(1, 11):
-        print("must give num 1-10")
+    if sys.argv[1] != "all" and int(sys.argv[1]) not in range(1, 11):
+        print("must give num 1-10 or all")
         sys.exit()
         
     playlist_metadata = pd.read_parquet("data/original/playlist_metadata.parquet")
@@ -175,8 +175,8 @@ if __name__ == '__main__':
         "10": create_test_set_10
     }
 
-    funcs[sys.argv[1]](playlist_metadata, playlist_contents)
-
-    print(f"\nCreated test data for group {sys.argv[1]}")
-
-    
+    if sys.argv[1] == "all":
+        for i in range(1, 11):
+            funcs[str(i)](playlist_metadata, playlist_contents)
+    else:
+        funcs[sys.argv[1]](playlist_metadata, playlist_contents)    

@@ -4,6 +4,7 @@ class GlobalPopularityModel:
 
     def __init__(self):
         self.most_popular = None
+        self.name = "Global Popularity Heuristic Model"
 
     def train(self, playlist_metadata, playlist_contents, track_metadata):
         self.most_popular = db.sql("""

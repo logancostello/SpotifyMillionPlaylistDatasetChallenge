@@ -5,6 +5,7 @@ class RandomModel:
 
     def __init__(self):
         self.rng = np.random.default_rng(123)
+        self.name = "Random Model"
 
     def train(self, playlist_metadata, playlist_contents, track_metadata):
         pass
