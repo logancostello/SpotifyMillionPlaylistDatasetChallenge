@@ -3,6 +3,7 @@ import sys
 
 from models.RandomModel import RandomModel
 from models.GlobalPopularityModel import GlobalPopularityModel
+from models.ArtistPopularityModel import ArtistPopularityModel
 
 from evaluation_funcs import compute_all_metrics
 
@@ -60,8 +61,12 @@ group_names = {
 }
 models = [
     RandomModel(),
-    GlobalPopularityModel()
+    GlobalPopularityModel(),
+    ArtistPopularityModel()
 ]
+
+# Store results for CSV output
+results = []
 
 for model in models:
     print(f"\n{'='*50}")
@@ -76,10 +81,13 @@ for model in models:
     all_ndcg = []
     all_clicks = []
     
+    # Dictionary to store this model's results
+    model_results = {'Model': model.name}
+    
     # Evaluate on each test set
     for test_set in test_sets:
         if len(test_sets) > 1:
-            print(f"\n--- Group {test_set['group']}: {group_names[test_set["group"]]} ---")
+            print(f"\n--- Group {test_set['group']}: {group_names[test_set['group']]} ---")
         
         prediction_df = model.predict(
             test_set['playlist_metadata'], 
@@ -97,13 +105,49 @@ for model in models:
         all_ndcg.append(ndcg)
         all_clicks.append(clicks)
         
+        # Store in results dictionary
+        group_num = test_set['group']
+        model_results[f'G{group_num}_R-Prec'] = r_prec
+        model_results[f'G{group_num}_NDCG'] = ndcg
+        model_results[f'G{group_num}_Clicks'] = clicks
+        
         print(f"R-Precision: {r_prec:.3f}")
         print(f"NDCG: {ndcg:.4f}")
         print(f"Clicks: {clicks:.3f}")
     
     # Print averages if evaluating on all groups
     if len(test_sets) > 1:
+        avg_r_prec = sum(all_r_prec)/len(all_r_prec)
+        avg_ndcg = sum(all_ndcg)/len(all_ndcg)
+        avg_clicks = sum(all_clicks)/len(all_clicks)
+        
+        model_results['Avg_R-Prec'] = avg_r_prec
+        model_results['Avg_NDCG'] = avg_ndcg
+        model_results['Avg_Clicks'] = avg_clicks
+        
         print(f"\n--- Group Average ---")
-        print(f"R-Precision: {sum(all_r_prec)/len(all_r_prec):.3f}")
-        print(f"NDCG: {sum(all_ndcg)/len(all_ndcg):.4f}")
-        print(f"Clicks: {sum(all_clicks)/len(all_clicks):.3f}")
+        print(f"R-Precision: {avg_r_prec:.3f}")
+        print(f"NDCG: {avg_ndcg:.4f}")
+        print(f"Clicks: {avg_clicks:.3f}")
+    
+    results.append(model_results)
+
+# Create DataFrame and save to CSV if evaluating all groups
+if len(test_sets) > 1:
+    results_df = pd.DataFrame(results)
+    
+    # Reorder columns: Model, then all G#_R-Prec, then all G#_NDCG, then all G#_Clicks, then averages
+    col_order = ['Model']
+    for i in range(1, 11):
+        col_order.append(f'G{i}_R-Prec')
+    for i in range(1, 11):
+        col_order.append(f'G{i}_NDCG')
+    for i in range(1, 11):
+        col_order.append(f'G{i}_Clicks')
+    col_order.extend(['Avg_R-Prec', 'Avg_NDCG', 'Avg_Clicks'])
+    
+    results_df = results_df[col_order]
+    results_df.to_csv('model_evaluation_results.csv', index=False)
+    print(f"\n{'='*50}")
+    print("Results saved to model_evaluation_results.csv")
+    print(f"{'='*50}")

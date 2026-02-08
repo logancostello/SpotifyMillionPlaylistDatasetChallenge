@@ -212,3 +212,4 @@ data/
 given_files/raw/data
 given_files/challenge/challenge_set.json
 given_files/challenge/sample_submission.csv
+model_evaluation_results.csv
