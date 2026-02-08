@@ -15,9 +15,9 @@ class GlobalPopularityModel:
             LIMIT 600
         """).df()
 
-    
-    def predict(self, playlist_metadata, playlist_contents, track_metadata):
         db.register('most_popular', self.most_popular)
+
+    def predict(self, playlist_metadata, playlist_contents, track_metadata):
         
         result = db.sql("""
             WITH ranked_popular AS (
