@@ -4,6 +4,7 @@ import sys
 from models.RandomModel import RandomModel
 from models.GlobalPopularityModel import GlobalPopularityModel
 from models.ArtistPopularityModel import ArtistPopularityModel
+from models.TitleTFIDFModel import TitleTFIDFModel
 
 from evaluation_funcs import compute_all_metrics
 
@@ -62,7 +63,8 @@ group_names = {
 models = [
     RandomModel(),
     GlobalPopularityModel(),
-    ArtistPopularityModel()
+    ArtistPopularityModel(),
+    TitleTFIDFModel()
 ]
 
 # Store results for CSV output

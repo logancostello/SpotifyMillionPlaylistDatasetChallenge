@@ -2,7 +2,7 @@ import sys
 import pandas as pd
 import math
 
-NUM_TEST_PLAYLISTS = 1000
+NUM_TEST_PLAYLISTS = 250
 SEED = 123
 
 # Title, 0 tracks
