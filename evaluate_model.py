@@ -5,6 +5,7 @@ from models.RandomModel import RandomModel
 from models.GlobalPopularityModel import GlobalPopularityModel
 from models.ArtistPopularityModel import ArtistPopularityModel
 from models.TitleTFIDFModel import TitleTFIDFModel
+from models.TitleEmbeddingModel import TitleEmbeddingModel
 
 from evaluation_funcs import compute_all_metrics
 
@@ -61,10 +62,11 @@ group_names = {
     10: "Title and 100 random tracks",
 }
 models = [
-    RandomModel(),
-    GlobalPopularityModel(),
+    # RandomModel(),
+    # GlobalPopularityModel(),
     ArtistPopularityModel(),
-    TitleTFIDFModel()
+    # TitleTFIDFModel(),
+    TitleEmbeddingModel()
 ]
 
 # Store results for CSV output
