@@ -5,6 +5,22 @@ import math
 NUM_TEST_PLAYLISTS = 250
 SEED = 123
 
+# No title, 0 tracks
+def create_test_set_0(playlist_metadata, playlist_contents):
+    test_playlists = playlist_metadata[(playlist_metadata["num_tracks"] >= 10) & (playlist_metadata["num_tracks"] <= 50)].sample(n=NUM_TEST_PLAYLISTS, random_state=SEED)
+    test_playlists["num_samples"] = 0
+    test_playlists["num_holdouts"] = test_playlists["num_tracks"] - test_playlists["num_samples"]
+    test_playlists["name"] = ""
+
+    filtered_contents = test_playlists[["pid"]].merge(playlist_contents, on="pid", how="inner")
+    test_contents = filtered_contents[filtered_contents["position"] < 0]
+    holdout_contents = filtered_contents[filtered_contents["position"] >= 0]
+
+    test_playlists.to_parquet("data/test/0/playlist_metadata.parquet", index=False)
+    test_contents.to_parquet("data/test/0/playlist_contents.parquet", index=False)
+    holdout_contents.to_parquet("data/test/0/holdout_contents.parquet", index=False)
+
+
 # Title, 0 tracks
 def create_test_set_1(playlist_metadata, playlist_contents):
     test_playlists = playlist_metadata[(playlist_metadata["num_tracks"] >= 10) & (playlist_metadata["num_tracks"] <= 50)].sample(n=NUM_TEST_PLAYLISTS, random_state=SEED+1)
@@ -155,14 +171,15 @@ if __name__ == '__main__':
         print("usage: python create_train_test_split.py [challenge group num]")
         sys.exit()
 
-    if sys.argv[1] != "all" and int(sys.argv[1]) not in range(1, 11):
-        print("must give num 1-10 or all")
+    if sys.argv[1] != "all" and int(sys.argv[1]) not in range(0, 11):
+        print("must give num 0-10 or all")
         sys.exit()
         
     playlist_metadata = pd.read_parquet("data/original/playlist_metadata.parquet")
     playlist_contents = pd.read_parquet("data/original/playlist_contents.parquet")
 
     funcs = {
+        "0": create_test_set_0,
         "1": create_test_set_1,
         "2": create_test_set_2,
         "3": create_test_set_3,
