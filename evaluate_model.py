@@ -9,8 +9,8 @@ from models.TitleEmbeddingModel import TitleEmbeddingModel
 
 from evaluation_funcs import compute_all_metrics
 
-if len(sys.argv) != 2 or (sys.argv[1] != "all" and int(sys.argv[1]) not in range(1, 11)):
-    print("usage: python evaluate_model.py [1-10 or 'all']")
+if len(sys.argv) != 2 or (sys.argv[1] != "all" and int(sys.argv[1]) not in range(0, 11)):
+    print("usage: python evaluate_model.py [0-10 or 'all']")
     sys.exit()
 
 # Load original data once
@@ -19,9 +19,9 @@ playlist_contents = pd.read_parquet("data/original/playlist_contents.parquet")
 track_metadata = pd.read_parquet("data/original/track_metadata.parquet")
 
 if sys.argv[1] == "all":
-    # Load all 10 test sets
+    # Load all 11 test sets
     test_sets = []
-    for i in range(1, 11):
+    for i in range(0, 11):
         test_sets.append({
             'group': i,
             'playlist_metadata': pd.read_parquet(f"data/test/{i}/playlist_metadata.parquet"),
@@ -50,6 +50,7 @@ else:
     train_playlist_contents = playlist_contents.merge(train_playlist_metadata[["pid"]], on="pid", how="inner")
 
 group_names = {
+    0: "No title, no tracks (baseline)",
     1: "Title only (no tracks)",
     2: "Title and first track",
     3: "Title and first 5 tracks",

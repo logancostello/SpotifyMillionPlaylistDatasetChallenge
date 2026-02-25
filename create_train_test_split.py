@@ -2,8 +2,11 @@ import sys
 import pandas as pd
 import math
 
-NUM_TEST_PLAYLISTS = 250
+NUM_TEST_PLAYLISTS = 1000
 SEED = 123
+
+def get_empty_embedding(playlist_metadata):
+    return [0] * playlist_metadata["title_bert_embeddings"].apply(lambda x: len(x)).max()
 
 # No title, 0 tracks
 def create_test_set_0(playlist_metadata, playlist_contents):
@@ -11,6 +14,8 @@ def create_test_set_0(playlist_metadata, playlist_contents):
     test_playlists["num_samples"] = 0
     test_playlists["num_holdouts"] = test_playlists["num_tracks"] - test_playlists["num_samples"]
     test_playlists["name"] = ""
+    empty_embedding = get_empty_embedding(test_playlists)
+    test_playlists["title_bert_embeddings"] = [empty_embedding] * len(test_playlists)
 
     filtered_contents = test_playlists[["pid"]].merge(playlist_contents, on="pid", how="inner")
     test_contents = filtered_contents[filtered_contents["position"] < 0]
@@ -71,6 +76,8 @@ def create_test_set_4(playlist_metadata, playlist_contents):
     test_playlists["name"] = ""
     test_playlists["num_samples"] = 5
     test_playlists["num_holdouts"] = test_playlists["num_tracks"] - test_playlists["num_samples"]
+    empty_embedding = get_empty_embedding(test_playlists)
+    test_playlists["title_bert_embeddings"] = [empty_embedding] * len(test_playlists)
 
     filtered_contents = test_playlists[["pid"]].merge(playlist_contents, on="pid", how="inner")
     test_contents = filtered_contents[filtered_contents["position"] < 5]
@@ -100,6 +107,8 @@ def create_test_set_6(playlist_metadata, playlist_contents):
     test_playlists["name"] = ""
     test_playlists["num_samples"] = 10
     test_playlists["num_holdouts"] = test_playlists["num_tracks"] - test_playlists["num_samples"]
+    empty_embedding = get_empty_embedding(test_playlists)
+    test_playlists["title_bert_embeddings"] = [empty_embedding] * len(test_playlists)
 
     filtered_contents = test_playlists[["pid"]].merge(playlist_contents, on="pid", how="inner")
     test_contents = filtered_contents[filtered_contents["position"] < 10]
@@ -193,7 +202,7 @@ if __name__ == '__main__':
     }
 
     if sys.argv[1] == "all":
-        for i in range(1, 11):
+        for i in range(0, 11):
             funcs[str(i)](playlist_metadata, playlist_contents)
     else:
         funcs[sys.argv[1]](playlist_metadata, playlist_contents)    
