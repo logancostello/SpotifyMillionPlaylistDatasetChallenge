@@ -83,8 +83,13 @@ class ArtistPopularityModel:
                         PARTITION BY pid 
                         ORDER BY source_priority, rank
                     ) as final_rn
-                FROM all_candidates
-                GROUP BY pid, track_uri, source_priority, rank
+                FROM (
+                    SELECT pid, track_uri, 
+                        MIN(source_priority) as source_priority, 
+                        MIN(rank) as rank
+                    FROM all_candidates
+                    GROUP BY pid, track_uri  -- deduplicate here
+                )
             )
             SELECT 
                 pid,
