@@ -4,10 +4,9 @@ import sys
 from models.RandomModel import RandomModel
 from models.GlobalPopularityModel import GlobalPopularityModel
 from models.ArtistPopularityModel import ArtistPopularityModel
-from models.TitleTFIDFModel import TitleTFIDFModel
 from models.TitleEmbeddingModel import TitleEmbeddingModel
 
-from evaluation_funcs import compute_all_metrics
+from evaluation_funcs import compute_all_metrics, check_rules
 
 if len(sys.argv) != 2 or (sys.argv[1] != "all" and int(sys.argv[1]) not in range(0, 11)):
     print("usage: python evaluate_model.py [0-10 or 'all']")
@@ -63,10 +62,9 @@ group_names = {
     10: "Title and 100 random tracks",
 }
 models = [
-    # RandomModel(),
-    # GlobalPopularityModel(),
+    RandomModel(),
+    GlobalPopularityModel(),
     ArtistPopularityModel(),
-    # TitleTFIDFModel(),
     TitleEmbeddingModel()
 ]
 
@@ -99,6 +97,8 @@ for model in models:
             test_set['playlist_contents'], 
             track_metadata
         )
+
+        check_rules(prediction_df, test_set["playlist_contents"])
         
         r_prec, ndcg, clicks = compute_all_metrics(
             prediction_df, 

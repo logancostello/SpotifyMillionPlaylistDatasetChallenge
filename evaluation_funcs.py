@@ -67,3 +67,35 @@ def compute_all_metrics(prediction_df, holdout_df, playlist_metadata):
     clicks = compute_clicks(prediction_df, holdout_df, playlist_metadata)
 
     return r_prec, ndcg, clicks
+
+def check_rules(prediction_df, playlist_contents):
+
+    num_recs = db.sql("""
+        SELECT pid, COUNT(*)
+        FROM prediction_df
+        GROUP BY pid
+        HAVING COUNT(*) != 500
+    """).df()
+
+    if len(num_recs) > 0:
+        print("WARNING: wrong number of recommendations")
+
+    duplicates = db.sql("""
+        SELECT pid, track_uri, COUNT(*) as count
+        FROM prediction_df
+        GROUP BY pid, track_uri
+        HAVING COUNT(*) >= 2
+    """).df()
+
+    if len(duplicates) > 0:
+        print("WARNING: duplicate recommendations made")
+
+    in_playlist_already = db.sql("""
+        SELECT *
+        FROM prediction_df p
+        JOIN playlist_contents c ON p.pid = c.pid AND p.track_uri = c.track_uri
+    """).df()
+
+    if len(in_playlist_already) > 0:
+        print("WARNING: recommending tracks already in the playlist")
+
