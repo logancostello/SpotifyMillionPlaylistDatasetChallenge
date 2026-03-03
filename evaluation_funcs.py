@@ -1,22 +1,66 @@
 import duckdb as db
 import numpy as np
 
-# Track level r_prec
-def compute_r_prec(prediction_df, holdout_df, playlist_metadata):
-    """ Return the % of holdout tracks that were in the first 500 predicted tracks """
+def compute_r_prec(prediction_df, holdout_df, playlist_metadata, track_metadata):
 
-    num_holdout_retrieved = db.sql("""
-        SELECT h.pid, COUNT(h.track_uri) as num_retrieved
+    # For each playlist, only consider top-|GT| predictions (where |GT| = num_holdouts)
+    # First, join predictions with num_holdouts to know the cutoff per playlist
+    eval_base = db.sql("""
+        SELECT p.pid, p.track_uri, p.prediction_num, pm.num_holdouts
+        FROM prediction_df p
+        JOIN playlist_metadata pm ON p.pid = pm.pid
+        WHERE p.prediction_num < pm.num_holdouts
+    """).df()
+
+    # |ST ∩ GT|: track-level hits in top-|GT| predictions
+    track_hits = db.sql("""
+        SELECT h.pid, COUNT(h.track_uri) as num_track_hits
         FROM holdout_df h
-        JOIN prediction_df p ON h.pid = p.pid AND h.track_uri = p.track_uri
-        WHERE p.prediction_num < 500
+        JOIN eval_base e ON h.pid = e.pid AND h.track_uri = e.track_uri
         GROUP BY h.pid
     """).df()
 
-    eval_df = playlist_metadata.merge(num_holdout_retrieved, on="pid", how="left")
-    eval_df["num_retrieved"] = eval_df["num_retrieved"].fillna(0)
-    r_prec = np.mean(eval_df["num_retrieved"] / eval_df["num_holdouts"])
-    return r_prec
+    # Get artist IDs for holdout tracks (GA) and top-|GT| predicted tracks (SA)
+    # then compute |SA ∩ GA| minus tracks already counted as track hits
+    artist_hits = db.sql("""
+        WITH holdout_artists AS (
+            SELECT DISTINCT h.pid, tm.artist_uri
+            FROM holdout_df h
+            JOIN track_metadata tm ON h.track_uri = tm.track_uri
+        ),
+        predicted_artists AS (
+            SELECT DISTINCT e.pid, tm.artist_uri
+            FROM eval_base e
+            JOIN track_metadata tm ON e.track_uri = tm.track_uri
+        ),
+        -- Tracks in top-|GT| that are already track hits (exclude their artists from partial)
+        track_hit_artists AS (
+            SELECT DISTINCT e.pid, tm.artist_uri
+            FROM eval_base e
+            JOIN holdout_df h ON e.pid = h.pid AND e.track_uri = h.track_uri
+            JOIN track_metadata tm ON e.track_uri = tm.track_uri
+        )
+        SELECT pa.pid, COUNT(*) as num_artist_hits
+        FROM predicted_artists pa
+        JOIN holdout_artists ha ON pa.pid = ha.pid AND pa.artist_uri = ha.artist_uri
+        -- Exclude artist matches that came from exact track matches
+        LEFT JOIN track_hit_artists tha ON pa.pid = tha.pid AND pa.artist_uri = tha.artist_uri
+        WHERE tha.artist_uri IS NULL
+        GROUP BY pa.pid
+    """).df()
+
+    eval_df = playlist_metadata \
+        .merge(track_hits, on="pid", how="left") \
+        .merge(artist_hits, on="pid", how="left")
+
+    eval_df["num_track_hits"] = eval_df["num_track_hits"].fillna(0)
+    eval_df["num_artist_hits"] = eval_df["num_artist_hits"].fillna(0)
+
+    eval_df["r_prec"] = (
+        eval_df["num_track_hits"] + 0.25 * eval_df["num_artist_hits"]
+    ) / eval_df["num_holdouts"]
+
+    return np.mean(eval_df["r_prec"])
 
 def idcg(R, K=500):
     return sum(1 / np.log2(i + 2) for i in range(min(R, K)))
@@ -61,8 +105,8 @@ def compute_clicks(prediction_df, holdout_df, playlist_metadata):
     clicks = eval_df["loc_first_correct"].mean()
     return clicks
 
-def compute_all_metrics(prediction_df, holdout_df, playlist_metadata):
-    r_prec = compute_r_prec(prediction_df, holdout_df, playlist_metadata)
+def compute_all_metrics(prediction_df, holdout_df, playlist_metadata, track_metadata):
+    r_prec = compute_r_prec(prediction_df, holdout_df, playlist_metadata, track_metadata)
     ndcg = compute_ndcg(prediction_df, holdout_df, playlist_metadata)
     clicks = compute_clicks(prediction_df, holdout_df, playlist_metadata)
 

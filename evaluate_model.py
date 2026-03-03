@@ -62,10 +62,10 @@ group_names = {
     10: "Title and 100 random tracks",
 }
 models = [
-    RandomModel(),
+    # RandomModel(),
     GlobalPopularityModel(),
-    ArtistPopularityModel(),
-    TitleEmbeddingModel()
+    # ArtistPopularityModel(),
+    # TitleEmbeddingModel()
 ]
 
 # Store results for CSV output
@@ -103,12 +103,14 @@ for model in models:
         r_prec, ndcg, clicks = compute_all_metrics(
             prediction_df, 
             test_set['holdout_contents'], 
-            test_set['playlist_metadata']
+            test_set['playlist_metadata'],
+            track_metadata
         )
         
-        all_r_prec.append(r_prec)
-        all_ndcg.append(ndcg)
-        all_clicks.append(clicks)
+        if test_set['group'] > 0:
+            all_r_prec.append(r_prec)
+            all_ndcg.append(ndcg)
+            all_clicks.append(clicks)
         
         # Store in results dictionary
         group_num = test_set['group']
