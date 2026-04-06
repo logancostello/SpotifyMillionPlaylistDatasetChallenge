@@ -4,6 +4,7 @@ class ArtistPopularityModel:
 
     def __init__(self):
         self.name = "Artist Popularity Model"
+        self.trained = False
 
     def train(self, playlist_metadata, playlist_contents, track_metadata):
         track_popularity = db.sql("""
@@ -14,6 +15,7 @@ class ArtistPopularityModel:
         """)
 
         db.register('track_popularity', track_popularity)
+        self.trained = True
 
     def predict(self, playlist_metadata, playlist_contents, track_metadata):
         db.register('playlist_contents', playlist_contents)

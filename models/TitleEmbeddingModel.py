@@ -13,6 +13,7 @@ class TitleEmbeddingModel:
         self.train_pids = None
         self.train_matrix = None
         self.pid_to_tracks = None
+        self.trained = False
 
     def train(self, playlist_metadata, playlist_contents, track_metadata):
         """
@@ -31,6 +32,7 @@ class TitleEmbeddingModel:
         self.train_pids = train["pid"].to_numpy()
         self.train_matrix = np.stack(train["title_bert_embeddings"].to_numpy())
         print(f"Stored {len(self.train_pids)} training playlists. Matrix shape: {self.train_matrix.shape}")
+        self.trained = True
 
     def _get_recommendations_for_playlist(self, pid, playlist_scores, already_in_playlist):
         """

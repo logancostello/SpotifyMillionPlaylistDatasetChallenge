@@ -5,6 +5,7 @@ class GlobalPopularityModel:
     def __init__(self):
         self.most_popular = None
         self.name = "Global Popularity Heuristic Model"
+        self.trained = False
 
     def train(self, playlist_metadata, playlist_contents, track_metadata):
         self.most_popular = db.sql("""
@@ -16,6 +17,7 @@ class GlobalPopularityModel:
         """).df()
 
         db.register('most_popular', self.most_popular)
+        self.trained = True
 
     def predict(self, playlist_metadata, playlist_contents, track_metadata):
         

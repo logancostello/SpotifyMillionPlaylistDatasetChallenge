@@ -15,6 +15,7 @@ class TitleTFIDFModel:
         self.name = "Title TF-IDF Model"
         self.index = None
         self.track_uris = None
+        self.trained = False
 
     def train(self, playlist_metadata, playlist_contents, track_metadata):
         # fit and transform — stays sparse
@@ -52,6 +53,7 @@ class TitleTFIDFModel:
         self.index = faiss.IndexFlatIP(track_vectors.shape[1])
         self.index.add(track_vectors)
         self.track_uris = track_uris
+        self.trained = True
 
     def predict(self, playlist_metadata, playlist_contents, track_metadata):
         query_vectors = self.vectorizer.transform(playlist_metadata['name']).toarray().astype('float32')
