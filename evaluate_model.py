@@ -5,6 +5,7 @@ from models.RandomModel import RandomModel
 from models.GlobalPopularityModel import GlobalPopularityModel
 from models.ArtistPopularityModel import ArtistPopularityModel
 from models.TitleEmbeddingModel import TitleEmbeddingModel
+from models.ArtistAndTitleModel import ArtistAndTitleModel
 
 from evaluation_funcs import compute_all_metrics, check_rules
 
@@ -61,11 +62,19 @@ group_names = {
     9: "Title and first 100 tracks",
     10: "Title and 100 random tracks",
 }
+
+random_model = RandomModel()
+global_pop_model = GlobalPopularityModel()
+artist_pop_model = ArtistPopularityModel()
+title_embedding_model = TitleEmbeddingModel()
+artist_title_model = ArtistAndTitleModel(artist_pop_model, title_embedding_model)
+
 models = [
-    # RandomModel(),
-    GlobalPopularityModel(),
-    # ArtistPopularityModel(),
-    # TitleEmbeddingModel()
+    # random_model, 
+    global_pop_model,
+    artist_pop_model,
+    title_embedding_model,
+    artist_title_model
 ]
 
 # Store results for CSV output
@@ -95,7 +104,9 @@ for model in models:
         prediction_df = model.predict(
             test_set['playlist_metadata'], 
             test_set['playlist_contents'], 
-            track_metadata
+            track_metadata,
+            500,
+            test_set['group']
         )
 
         check_rules(prediction_df, test_set["playlist_contents"])
@@ -121,7 +132,7 @@ for model in models:
         print(f"R-Precision: {r_prec:.3f}")
         print(f"NDCG: {ndcg:.4f}")
         print(f"Clicks: {clicks:.3f}")
-    
+
     # Print averages if evaluating on all groups
     if len(test_sets) > 1:
         avg_r_prec = sum(all_r_prec)/len(all_r_prec)

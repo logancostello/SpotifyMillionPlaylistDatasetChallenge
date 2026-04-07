@@ -7,8 +7,7 @@ import faiss
 
 class TitleTFIDFModel:
 
-    def __init__(self, n_recommendations=500, min_playlist_count=2, max_features=500):
-        self.n_recommendations = n_recommendations
+    def __init__(self, min_playlist_count=2, max_features=500):
         self.min_playlist_count = min_playlist_count
         self.max_features = max_features
         self.vectorizer = TfidfVectorizer(max_features=max_features, min_df=2)
@@ -55,11 +54,11 @@ class TitleTFIDFModel:
         self.track_uris = track_uris
         self.trained = True
 
-    def predict(self, playlist_metadata, playlist_contents, track_metadata):
+    def predict(self, playlist_metadata, playlist_contents, track_metadata, n_recs, g_num):
         query_vectors = self.vectorizer.transform(playlist_metadata['name']).toarray().astype('float32')
         faiss.normalize_L2(query_vectors)
 
-        distances, indices = self.index.search(query_vectors, self.n_recommendations * 2)
+        distances, indices = self.index.search(query_vectors, n_recs * 2)
 
         results = []
         for i, pid in enumerate(playlist_metadata['pid']):
@@ -76,7 +75,7 @@ class TitleTFIDFModel:
                     continue
                 results.append({'pid': pid, 'track_uri': track_uri, 'prediction_num': rank})
                 rank += 1
-                if rank >= self.n_recommendations:
+                if rank >= n_recs:
                     break
 
         return pd.DataFrame(results)

@@ -17,11 +17,11 @@ class ArtistPopularityModel:
         db.register('track_popularity', track_popularity)
         self.trained = True
 
-    def predict(self, playlist_metadata, playlist_contents, track_metadata):
+    def predict(self, playlist_metadata, playlist_contents, track_metadata, n_recs, g_num):
         db.register('playlist_contents', playlist_contents)
         db.register('track_metadata', track_metadata)
 
-        result = db.sql("""
+        result = db.sql(f"""
             WITH playlist_artists AS (
                 SELECT pc.pid, tm.artist_uri, COUNT(*) AS num_appearances
                 FROM playlist_contents pc
@@ -65,7 +65,7 @@ class ArtistPopularityModel:
             all_candidates AS (
                 SELECT pid, track_uri, rn as rank, 1 as source_priority
                 FROM ranked_artist_candidates
-                WHERE rn <= 500
+                WHERE rn <= {n_recs}
                 
                 UNION ALL
                 
@@ -98,7 +98,7 @@ class ArtistPopularityModel:
                 track_uri,
                 final_rn - 1 as prediction_num
             FROM final_ranked
-            WHERE final_rn <= 500
+            WHERE final_rn <= {n_recs}
             ORDER BY pid, final_rn
         """).df()
 

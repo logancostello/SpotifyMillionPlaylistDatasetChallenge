@@ -13,10 +13,10 @@ class RandomModel:
 
     # Technically this breaks the rule of not predicting a song already in the playlist
     # but this model is random and purely a baseline
-    def predict(self, playlist_metadata, playlist_contents, track_metadata):
+    def predict(self, playlist_metadata, playlist_contents, track_metadata, n_recs, g_num):
 
-        # Pair each pid to 500 positions
-        prediction_num = range(0, 500)
+        # Pair each pid to n_recs positions
+        prediction_num = range(0, n_recs)
         prediction_df = pd.DataFrame(prediction_num, columns=["prediction_num"])
         prediction_df = playlist_metadata[["pid"]].merge(prediction_df, how="cross")
 

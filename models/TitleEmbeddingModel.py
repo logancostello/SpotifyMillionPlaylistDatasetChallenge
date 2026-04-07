@@ -5,9 +5,8 @@ import pandas as pd
 
 class TitleEmbeddingModel:
 
-    def __init__(self, n_recommendations=500, top_k_playlists=50, predict_chunk_size=500):
+    def __init__(self, top_k_playlists=50, predict_chunk_size=500):
         self.name = "Title Embedding Model"
-        self.n_recommendations = n_recommendations
         self.top_k_playlists = top_k_playlists
         self.predict_chunk_size = predict_chunk_size
         self.train_pids = None
@@ -34,7 +33,7 @@ class TitleEmbeddingModel:
         print(f"Stored {len(self.train_pids)} training playlists. Matrix shape: {self.train_matrix.shape}")
         self.trained = True
 
-    def _get_recommendations_for_playlist(self, pid, playlist_scores, already_in_playlist):
+    def _get_recommendations_for_playlist(self, pid, playlist_scores, already_in_playlist, n_recs):
         """
         Accumulate weighted track scores from top-k playlists, expanding k
         until we have enough recommendations or exhaust all training playlists.
@@ -53,14 +52,14 @@ class TitleEmbeddingModel:
                     if track_uri not in already_in_playlist:
                         track_scores[track_uri] = track_scores.get(track_uri, 0.0) + weight
 
-            if len(track_scores) >= self.n_recommendations or k >= max_k:
+            if len(track_scores) >= n_recs or k >= max_k:
                 break
 
             k = min(k * 2, max_k)
 
-        return sorted(track_scores, key=track_scores.__getitem__, reverse=True)[:self.n_recommendations]
+        return sorted(track_scores, key=track_scores.__getitem__, reverse=True)[:n_recs]
 
-    def predict(self, playlist_metadata, playlist_contents, track_metadata):
+    def predict(self, playlist_metadata, playlist_contents, track_metadata, n_recs, g_num):
         """
         For each test playlist:
           1. Find the top-k most similar training playlists by title embedding cosine similarity.
@@ -86,7 +85,7 @@ class TitleEmbeddingModel:
 
             for pid, playlist_scores in zip(chunk_pids, scores):
                 already_in_playlist = existing_tracks.get(pid, set())
-                ranked_uris = self._get_recommendations_for_playlist(pid, playlist_scores, already_in_playlist)
+                ranked_uris = self._get_recommendations_for_playlist(pid, playlist_scores, already_in_playlist, n_recs)
 
                 for prediction_num, track_uri in enumerate(ranked_uris):
                     rows.append((pid, prediction_num, track_uri))

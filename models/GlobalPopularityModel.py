@@ -19,9 +19,9 @@ class GlobalPopularityModel:
         db.register('most_popular', self.most_popular)
         self.trained = True
 
-    def predict(self, playlist_metadata, playlist_contents, track_metadata):
+    def predict(self, playlist_metadata, playlist_contents, track_metadata, n_recs, g_num):
         
-        result = db.sql("""
+        result = db.sql(f"""
             WITH ranked_popular AS (
                 SELECT 
                     pm.pid,
@@ -35,7 +35,7 @@ class GlobalPopularityModel:
             )
             SELECT pid, track_uri, rn - 1 as prediction_num
             FROM ranked_popular
-            WHERE rn <= 500
+            WHERE rn <= {n_recs}
             ORDER BY pid, rn
         """).df()
         
