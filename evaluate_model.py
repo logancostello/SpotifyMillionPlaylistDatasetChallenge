@@ -13,41 +13,37 @@ if len(sys.argv) != 2 or (sys.argv[1] != "all" and int(sys.argv[1]) not in range
     print("usage: python evaluate_model.py [0-10 or 'all']")
     sys.exit()
 
-# Load original data once
-playlist_metadata = pd.read_parquet("data/original/playlist_metadata.parquet")
-playlist_contents = pd.read_parquet("data/original/playlist_contents.parquet")
-track_metadata = pd.read_parquet("data/original/track_metadata.parquet")
+groups = list(range(11)) if sys.argv[1] == "all" else [int(sys.argv[1])]
 
-if sys.argv[1] == "all":
-    # Load all 11 test sets
-    test_sets = []
-    for i in range(0, 11):
-        test_sets.append({
-            'group': i,
-            'playlist_metadata': pd.read_parquet(f"data/test/{i}/playlist_metadata.parquet"),
-            'playlist_contents': pd.read_parquet(f"data/test/{i}/playlist_contents.parquet"),
-            'holdout_contents': pd.read_parquet(f"data/test/{i}/holdout_contents.parquet")
-        })
-    
-    # Get all test PIDs from all groups
-    all_test_pids = pd.concat([ts['playlist_metadata']['pid'] for ts in test_sets]).unique()
-    
-    # Create single training set excluding all test PIDs
-    train_playlist_metadata = playlist_metadata[~playlist_metadata["pid"].isin(all_test_pids)]
-    train_playlist_contents = playlist_contents.merge(train_playlist_metadata[["pid"]], on="pid", how="inner")
-    
-else:
-    # Single group evaluation
-    group = sys.argv[1]
-    test_sets = [{
-        'group': int(group),
-        'playlist_metadata': pd.read_parquet(f"data/test/{group}/playlist_metadata.parquet"),
-        'playlist_contents': pd.read_parquet(f"data/test/{group}/playlist_contents.parquet"),
-        'holdout_contents': pd.read_parquet(f"data/test/{group}/holdout_contents.parquet")
-    }]
-    
-    train_playlist_metadata = playlist_metadata[~playlist_metadata["pid"].isin(test_sets[0]['playlist_metadata']["pid"])]
-    train_playlist_contents = playlist_contents.merge(train_playlist_metadata[["pid"]], on="pid", how="inner")
+test_sets = []
+train_sets = []
+for i in groups:
+    test_sets.append({
+        'group': i,
+        'playlist_metadata': pd.read_parquet(f"data/test/{i}/playlist_metadata.parquet"),
+        'playlist_contents': pd.read_parquet(f"data/test/{i}/playlist_contents.parquet"),
+        'holdout_contents':  pd.read_parquet(f"data/test/{i}/holdout_contents.parquet"),
+    })
+    train_sets.append({
+        'group': i,
+        'playlist_metadata': pd.read_parquet(f"data/train/{i}/playlist_metadata.parquet"),
+        'playlist_contents': pd.read_parquet(f"data/train/{i}/playlist_contents.parquet"),
+        'holdout_contents':  pd.read_parquet(f"data/train/{i}/holdout_contents.parquet"),
+    })
+
+all_track_uris = pd.concat([
+    *[ts['playlist_contents']['track_uri'] for ts in test_sets],
+    *[ts['playlist_contents']['track_uri'] for ts in train_sets],
+    *[ts['holdout_contents']['track_uri']  for ts in test_sets],
+    *[ts['holdout_contents']['track_uri']  for ts in train_sets],
+]).unique()
+
+track_metadata = pd.read_parquet("data/original/track_metadata.parquet")
+track_metadata = track_metadata[track_metadata["track_uri"].isin(all_track_uris)]
+
+train_playlist_metadata = pd.concat([ts['playlist_metadata'] for ts in train_sets], ignore_index=True)
+train_playlist_contents = pd.concat([ts['playlist_contents'] for ts in train_sets], ignore_index=True)
+train_playlist_holdouts = pd.concat([ts['holdout_contents']  for ts in train_sets], ignore_index=True)
 
 group_names = {
     0: "No title, no tracks (baseline)",
@@ -63,14 +59,12 @@ group_names = {
     10: "Title and 100 random tracks",
 }
 
-random_model = RandomModel()
 global_pop_model = GlobalPopularityModel()
 artist_pop_model = ArtistPopularityModel()
 title_embedding_model = TitleEmbeddingModel()
 artist_title_model = ArtistAndTitleModel(artist_pop_model, title_embedding_model)
 
 models = [
-    # random_model, 
     global_pop_model,
     artist_pop_model,
     title_embedding_model,
@@ -86,7 +80,7 @@ for model in models:
     print(f"{'='*50}")
     
     # Train once
-    model.train(train_playlist_metadata, train_playlist_contents, track_metadata)
+    model.train(train_playlist_metadata, train_playlist_contents, train_playlist_holdouts, track_metadata)
     
     # Track metrics for averaging
     all_r_prec = []

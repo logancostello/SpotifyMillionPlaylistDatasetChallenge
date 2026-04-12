@@ -6,7 +6,7 @@ class ArtistPopularityModel:
         self.name = "Artist Popularity Model"
         self.trained = False
 
-    def train(self, playlist_metadata, playlist_contents, track_metadata):
+    def train(self, playlist_metadata, playlist_contents, playlist_holdouts, track_metadata):
         track_popularity = db.sql("""
             SELECT track_uri, COUNT(*) AS popularity
             FROM playlist_contents 

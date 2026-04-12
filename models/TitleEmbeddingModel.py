@@ -14,7 +14,7 @@ class TitleEmbeddingModel:
         self.pid_to_tracks = None
         self.trained = False
 
-    def train(self, playlist_metadata, playlist_contents, track_metadata):
+    def train(self, playlist_metadata, playlist_contents, playlist_holdouts, track_metadata):
         """
         Store training playlist embeddings and their track lists.
         No track-space averaging — everything stays in playlist space.

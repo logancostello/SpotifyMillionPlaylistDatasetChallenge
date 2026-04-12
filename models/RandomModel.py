@@ -8,7 +8,7 @@ class RandomModel:
         self.name = "Random Model"
         self.trained = True
 
-    def train(self, playlist_metadata, playlist_contents, track_metadata):
+    def train(self, playlist_metadata, playlist_contents, playlist_holdouts, track_metadata):
         pass
 
     # Technically this breaks the rule of not predicting a song already in the playlist

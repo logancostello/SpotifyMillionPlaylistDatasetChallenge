@@ -16,7 +16,7 @@ class TitleTFIDFModel:
         self.track_uris = None
         self.trained = False
 
-    def train(self, playlist_metadata, playlist_contents, track_metadata):
+    def train(self, playlist_metadata, playlist_contents, playlist_holdouts, track_metadata):
         # fit and transform — stays sparse
         playlist_vectors = self.vectorizer.fit_transform(playlist_metadata['name'])
 

@@ -25,7 +25,7 @@ class ArtistAndTitleModel:
         self.trained = False
         self.results = {}
 
-    def train(self, playlist_metadata, playlist_contents, track_metadata):
+    def train(self, playlist_metadata, playlist_contents, playlist_holdouts, track_metadata):
         if not self.artist_model.trained:
             self.artist_model.train(playlist_metadata, playlist_contents, track_metadata)
         if not self.title_model.trained:
