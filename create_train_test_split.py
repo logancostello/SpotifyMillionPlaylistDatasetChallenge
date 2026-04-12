@@ -17,6 +17,7 @@ def create_test_set_0(playlist_metadata, playlist_contents, dir, n):
     test_playlists["name"] = ""
     empty_embedding = get_empty_embedding(test_playlists)
     test_playlists["title_bert_embeddings"] = [empty_embedding] * len(test_playlists)
+    test_playlists["group"] = 0
 
     filtered_contents = test_playlists[["pid"]].merge(playlist_contents, on="pid", how="inner")
     test_contents = filtered_contents[filtered_contents["position"] < 0]
@@ -34,6 +35,7 @@ def create_test_set_1(playlist_metadata, playlist_contents, dir, n):
     test_playlists = playlist_metadata[(playlist_metadata["num_tracks"] >= 10) & (playlist_metadata["num_tracks"] <= 50)].sample(n, random_state=SEED+1)
     test_playlists["num_samples"] = 0
     test_playlists["num_holdouts"] = test_playlists["num_tracks"] - test_playlists["num_samples"]
+    test_playlists["group"] = 1
 
     filtered_contents = test_playlists[["pid"]].merge(playlist_contents, on="pid", how="inner")
     test_contents = filtered_contents[filtered_contents["position"] < 0]
@@ -50,6 +52,7 @@ def create_test_set_2(playlist_metadata, playlist_contents, dir, n):
     test_playlists = playlist_metadata[(playlist_metadata["num_tracks"] >= 10) & (playlist_metadata["num_tracks"] <= 39)].sample(n, random_state=SEED+2)
     test_playlists["num_samples"] = 1
     test_playlists["num_holdouts"] = test_playlists["num_tracks"] - test_playlists["num_samples"]
+    test_playlists["group"] = 2
 
     filtered_contents = test_playlists[["pid"]].merge(playlist_contents, on="pid", how="inner")
     test_contents = filtered_contents[filtered_contents["position"] < 1]
@@ -68,6 +71,7 @@ def create_test_set_3(playlist_metadata, playlist_contents, dir, n):
     test_playlists = pd.concat([first_half, second_half])
     test_playlists["num_samples"] = 5
     test_playlists["num_holdouts"] = test_playlists["num_tracks"] - test_playlists["num_samples"]
+    test_playlists["group"] = 3
 
     filtered_contents = test_playlists[["pid"]].merge(playlist_contents, on="pid", how="inner")
     test_contents = filtered_contents[filtered_contents["position"] < 5]
@@ -87,6 +91,7 @@ def create_test_set_4(playlist_metadata, playlist_content, dir, n):
     test_playlists["num_holdouts"] = test_playlists["num_tracks"] - test_playlists["num_samples"]
     empty_embedding = get_empty_embedding(test_playlists)
     test_playlists["title_bert_embeddings"] = [empty_embedding] * len(test_playlists)
+    test_playlists["group"] = 4
 
     filtered_contents = test_playlists[["pid"]].merge(playlist_contents, on="pid", how="inner")
     test_contents = filtered_contents[filtered_contents["position"] < 5]
@@ -103,6 +108,7 @@ def create_test_set_5(playlist_metadata, playlist_contents, dir, n):
     test_playlists = playlist_metadata[(playlist_metadata["num_tracks"] >= 40) & (playlist_metadata["num_tracks"] <= 100)].sample(n, random_state=SEED+6)
     test_playlists["num_samples"] = 10
     test_playlists["num_holdouts"] = test_playlists["num_tracks"] - test_playlists["num_samples"]
+    test_playlists["group"] = 5
 
     filtered_contents = test_playlists[["pid"]].merge(playlist_contents, on="pid", how="inner")
     test_contents = filtered_contents[filtered_contents["position"] < 10]
@@ -122,6 +128,7 @@ def create_test_set_6(playlist_metadata, playlist_contents, dir, n):
     test_playlists["num_holdouts"] = test_playlists["num_tracks"] - test_playlists["num_samples"]
     empty_embedding = get_empty_embedding(test_playlists)
     test_playlists["title_bert_embeddings"] = [empty_embedding] * len(test_playlists)
+    test_playlists["group"] = 6
 
     filtered_contents = test_playlists[["pid"]].merge(playlist_contents, on="pid", how="inner")
     test_contents = filtered_contents[filtered_contents["position"] < 10]
@@ -138,6 +145,7 @@ def create_test_set_7(playlist_metadata, playlist_contents, dir, n):
     test_playlists = playlist_metadata[playlist_metadata["num_tracks"] >= 101].sample(n, random_state=SEED+8)
     test_playlists["num_samples"] = 25
     test_playlists["num_holdouts"] = test_playlists["num_tracks"] - test_playlists["num_samples"]
+    test_playlists["group"] = 7
 
     filtered_contents = test_playlists[["pid"]].merge(playlist_contents, on="pid", how="inner")
     test_contents = filtered_contents[filtered_contents["position"] < 25]
@@ -154,6 +162,7 @@ def create_test_set_8(playlist_metadata, playlist_contents, dir, n):
     test_playlists = playlist_metadata[playlist_metadata["num_tracks"] >= 101].sample(n, random_state=SEED+9)
     test_playlists["num_samples"] = 25
     test_playlists["num_holdouts"] = test_playlists["num_tracks"] - test_playlists["num_samples"]
+    test_playlists["group"] = 8
 
     filtered_contents = test_playlists[["pid"]].merge(playlist_contents, on="pid", how="inner")
     test_contents = filtered_contents.groupby("pid").sample(n=25, random_state=SEED).sort_values(["pid", "position"])
@@ -170,6 +179,7 @@ def create_test_set_9(playlist_metadata, playlist_contents, dir, n):
     test_playlists = playlist_metadata[playlist_metadata["num_tracks"] >= 150].sample(n, random_state=SEED+10)
     test_playlists["num_samples"] = 100
     test_playlists["num_holdouts"] = test_playlists["num_tracks"] - test_playlists["num_samples"]
+    test_playlists["group"] = 9
 
     filtered_contents = test_playlists[["pid"]].merge(playlist_contents, on="pid", how="inner")
     test_contents = filtered_contents[filtered_contents["position"] < 100]
@@ -186,6 +196,7 @@ def create_test_set_10(playlist_metadata, playlist_contents, dir, n):
     test_playlists = playlist_metadata[playlist_metadata["num_tracks"] >= 150].sample(n, random_state=SEED+11)
     test_playlists["num_samples"] = 100
     test_playlists["num_holdouts"] = test_playlists["num_tracks"] - test_playlists["num_samples"]
+    test_playlists["group"] = 10
 
     filtered_contents = test_playlists[["pid"]].merge(playlist_contents, on="pid", how="inner")
     test_contents = filtered_contents.groupby("pid").sample(n=100, random_state=SEED).sort_values(["pid", "position"])
