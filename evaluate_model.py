@@ -6,6 +6,7 @@ from models.GlobalPopularityModel import GlobalPopularityModel
 from models.ArtistPopularityModel import ArtistPopularityModel
 from models.TitleEmbeddingModel import TitleEmbeddingModel
 from models.ArtistAndTitleModel import ArtistAndTitleModel
+from models.MFModel import MFModel
 
 from evaluation_funcs import compute_all_metrics, check_rules
 
@@ -45,6 +46,54 @@ train_playlist_metadata = pd.concat([ts['playlist_metadata'] for ts in train_set
 train_playlist_contents = pd.concat([ts['playlist_contents'] for ts in train_sets], ignore_index=True)
 train_playlist_holdouts = pd.concat([ts['holdout_contents']  for ts in train_sets], ignore_index=True)
 
+# ── Candidate model training data ─────────────────────────────────────────────
+# All playlists: full contents for train, seed-only contents for test
+original_metadata = pd.read_parquet("data/original/playlist_metadata.parquet")
+original_contents = pd.read_parquet("data/original/playlist_contents.parquet")
+
+test_pids = pd.concat([ts['playlist_metadata']['pid'] for ts in test_sets]).unique()
+
+candidate_train_metadata = pd.concat([
+    original_metadata[~original_metadata["pid"].isin(test_pids)],
+    *[ts['playlist_metadata'] for ts in test_sets],
+], ignore_index=True)
+
+candidate_train_contents = pd.concat([
+    original_contents[~original_contents["pid"].isin(test_pids)],
+    *[ts['playlist_contents'] for ts in test_sets],   # seed-only for test playlists
+], ignore_index=True)
+
+# ── Ranker training data ───────────────────────────────────────────────────────
+# Train splits (seeds + holdouts as labels) + test seeds (no holdouts)
+ranker_train_metadata = pd.concat([
+    train_playlist_metadata,
+    *[ts['playlist_metadata'] for ts in test_sets],
+], ignore_index=True)
+
+ranker_train_contents = pd.concat([
+    train_playlist_contents,
+    train_playlist_holdouts,
+    *[ts['playlist_contents'] for ts in test_sets],
+], ignore_index=True)
+
+all_contents = pd.concat([
+    train_playlist_contents,
+    train_playlist_holdouts,
+    *[ts['playlist_contents'] for ts in test_sets]
+], ignore_index=True)
+
+all_metadata = pd.concat([
+    train_playlist_metadata,
+    *[ts['playlist_metadata'] for ts in test_sets]
+], ignore_index=True)
+
+# Seed-only contents for rankers (holdouts kept as labels)
+all_seed_contents = pd.concat([
+    train_playlist_contents,
+    *[ts['playlist_contents'] for ts in test_sets]
+], ignore_index=True)
+
+
 group_names = {
     0: "No title, no tracks (baseline)",
     1: "Title only (no tracks)",
@@ -63,12 +112,14 @@ global_pop_model = GlobalPopularityModel()
 artist_pop_model = ArtistPopularityModel()
 title_embedding_model = TitleEmbeddingModel()
 artist_title_model = ArtistAndTitleModel(artist_pop_model, title_embedding_model)
+mf_model = MFModel()
 
 models = [
     global_pop_model,
     artist_pop_model,
     title_embedding_model,
-    artist_title_model
+    artist_title_model,
+    mf_model
 ]
 
 # Store results for CSV output
@@ -80,7 +131,11 @@ for model in models:
     print(f"{'='*50}")
     
     # Train once
-    model.train(train_playlist_metadata, train_playlist_contents, train_playlist_holdouts, track_metadata)
+    if model.is_ranker:
+        model.train(ranker_train_metadata, ranker_train_contents, train_playlist_holdouts, track_metadata)
+    else:
+        model.train(candidate_train_metadata, candidate_train_contents, track_metadata)
+
     
     # Track metrics for averaging
     all_r_prec = []
