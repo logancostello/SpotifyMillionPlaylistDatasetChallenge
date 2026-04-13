@@ -20,12 +20,13 @@ class ArtistAndTitleModel:
     
     def __init__(self, artist_model, title_model):
         self.name = "Artist Title Ensemble Model"
+        self.is_ranker=False
         self.artist_model = artist_model
         self.title_model = title_model
         self.trained = False
         self.results = {}
 
-    def train(self, playlist_metadata, playlist_contents, playlist_holdouts, track_metadata):
+    def train(self, playlist_metadata, playlist_contents, track_metadata):
         if not self.artist_model.trained:
             self.artist_model.train(playlist_metadata, playlist_contents, track_metadata)
         if not self.title_model.trained:

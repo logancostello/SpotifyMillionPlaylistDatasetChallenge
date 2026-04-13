@@ -5,9 +5,10 @@ class GlobalPopularityModel:
     def __init__(self):
         self.most_popular = None
         self.name = "Global Popularity Heuristic Model"
+        self.is_ranker=False
         self.trained = False
 
-    def train(self, playlist_metadata, playlist_contents, playlist_holdouts, track_metadata):
+    def train(self, playlist_metadata, playlist_contents, track_metadata):
         self.most_popular = db.sql("""
             SELECT track_uri, COUNT(*) as count
             FROM playlist_contents

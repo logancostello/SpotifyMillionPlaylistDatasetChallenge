@@ -7,6 +7,7 @@ class TitleEmbeddingModel:
 
     def __init__(self, top_k_playlists=50, predict_chunk_size=500):
         self.name = "Title Embedding Model"
+        self.is_ranker=False
         self.top_k_playlists = top_k_playlists
         self.predict_chunk_size = predict_chunk_size
         self.train_pids = None
@@ -14,7 +15,7 @@ class TitleEmbeddingModel:
         self.pid_to_tracks = None
         self.trained = False
 
-    def train(self, playlist_metadata, playlist_contents, playlist_holdouts, track_metadata):
+    def train(self, playlist_metadata, playlist_contents, track_metadata):
         """
         Store training playlist embeddings and their track lists.
         No track-space averaging — everything stays in playlist space.

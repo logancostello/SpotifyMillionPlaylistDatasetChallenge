@@ -6,9 +6,10 @@ class RandomModel:
     def __init__(self):
         self.rng = np.random.default_rng(123)
         self.name = "Random Model"
+        self.is_ranker=False
         self.trained = True
 
-    def train(self, playlist_metadata, playlist_contents, playlist_holdouts, track_metadata):
+    def train(self, playlist_metadata, playlist_contents, track_metadata):
         pass
 
     # Technically this breaks the rule of not predicting a song already in the playlist

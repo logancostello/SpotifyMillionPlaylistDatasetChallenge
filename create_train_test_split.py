@@ -2,8 +2,8 @@ import sys
 import pandas as pd
 import math
 
-NUM_TRAIN_PLAYLISTS = 15000
-NUM_TEST_PLAYLISTS = 500
+NUM_TRAIN_PLAYLISTS = 25000
+NUM_TEST_PLAYLISTS = 1000
 SEED = 123
 
 def get_empty_embedding(playlist_metadata):
