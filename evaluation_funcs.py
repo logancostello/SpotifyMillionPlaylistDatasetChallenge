@@ -3,8 +3,6 @@ import numpy as np
 
 def compute_r_prec(prediction_df, holdout_df, playlist_metadata, track_metadata):
 
-    # For each playlist, only consider top-|GT| predictions (where |GT| = num_holdouts)
-    # First, join predictions with num_holdouts to know the cutoff per playlist
     eval_base = db.sql("""
         SELECT p.pid, p.track_uri, p.prediction_num, pm.num_holdouts
         FROM prediction_df p
@@ -12,7 +10,6 @@ def compute_r_prec(prediction_df, holdout_df, playlist_metadata, track_metadata)
         WHERE p.prediction_num < pm.num_holdouts
     """).df()
 
-    # |ST ∩ GT|: track-level hits in top-|GT| predictions
     track_hits = db.sql("""
         SELECT h.pid, COUNT(h.track_uri) as num_track_hits
         FROM holdout_df h
@@ -20,8 +17,6 @@ def compute_r_prec(prediction_df, holdout_df, playlist_metadata, track_metadata)
         GROUP BY h.pid
     """).df()
 
-    # Get artist IDs for holdout tracks (GA) and top-|GT| predicted tracks (SA)
-    # then compute |SA ∩ GA| minus tracks already counted as track hits
     artist_hits = db.sql("""
         WITH holdout_artists AS (
             SELECT DISTINCT h.pid, tm.artist_uri
@@ -32,20 +27,10 @@ def compute_r_prec(prediction_df, holdout_df, playlist_metadata, track_metadata)
             SELECT DISTINCT e.pid, tm.artist_uri
             FROM eval_base e
             JOIN track_metadata tm ON e.track_uri = tm.track_uri
-        ),
-        -- Tracks in top-|GT| that are already track hits (exclude their artists from partial)
-        track_hit_artists AS (
-            SELECT DISTINCT e.pid, tm.artist_uri
-            FROM eval_base e
-            JOIN holdout_df h ON e.pid = h.pid AND e.track_uri = h.track_uri
-            JOIN track_metadata tm ON e.track_uri = tm.track_uri
         )
         SELECT pa.pid, COUNT(*) as num_artist_hits
         FROM predicted_artists pa
         JOIN holdout_artists ha ON pa.pid = ha.pid AND pa.artist_uri = ha.artist_uri
-        -- Exclude artist matches that came from exact track matches
-        LEFT JOIN track_hit_artists tha ON pa.pid = tha.pid AND pa.artist_uri = tha.artist_uri
-        WHERE tha.artist_uri IS NULL
         GROUP BY pa.pid
     """).df()
 
