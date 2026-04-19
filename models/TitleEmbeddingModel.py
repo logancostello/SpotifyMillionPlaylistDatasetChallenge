@@ -6,23 +6,35 @@ import faiss
 import pickle
 import os
 
+
 class TitleEmbeddingModel:
 
     SAVE_DIR = "saved_models/title_embedding_model"
 
-    def __init__(self, top_k_playlists=50, predict_chunk_size=500, approximate=True, n_cells=100, n_probe=10):
-        self.name               = "Title Embedding Model"
-        self.is_ranker          = False
-        self.top_k_playlists    = top_k_playlists
-        self.predict_chunk_size = predict_chunk_size
-        self.approximate        = approximate
-        self.n_cells            = n_cells
-        self.n_probe            = n_probe
-        self.train_pids         = None
-        self.pid_to_tracks      = None
-        self.global_ranking     = None
-        self.index              = None
-        self.trained            = False
+    def __init__(
+        self,
+        top_k_playlists=300,
+        predict_chunk_size=500,
+        approximate=False,
+        n_cells=100,
+        n_probe=10,
+        similarity_threshold=0.15,
+        weight_temperature=5,
+    ):
+        self.name                 = "Title Embedding Model"
+        self.is_ranker            = False
+        self.top_k_playlists      = top_k_playlists
+        self.predict_chunk_size   = predict_chunk_size
+        self.approximate          = approximate
+        self.n_cells              = n_cells
+        self.n_probe              = n_probe
+        self.similarity_threshold = similarity_threshold
+        self.weight_temperature   = weight_temperature
+        self.train_pids           = None
+        self.pid_to_tracks        = None
+        self.global_ranking       = None
+        self.index                = None
+        self.trained              = False
 
     def _save_exists(self):
         return (
@@ -66,7 +78,7 @@ class TitleEmbeddingModel:
             .to_dict()
         )
 
-        track_freq          = defaultdict(int)
+        track_freq = defaultdict(int)
         for tracks in self.pid_to_tracks.values():
             for t in tracks:
                 track_freq[t] += 1
@@ -95,6 +107,28 @@ class TitleEmbeddingModel:
         self.trained = True
         self.save()
 
+    def _score_tracks(self, sim_scores, neighbor_idx, already_in_playlist):
+        # Apply threshold and temperature, then normalize
+        pairs = [
+            (weight ** self.weight_temperature, idx)
+            for weight, idx in zip(sim_scores, neighbor_idx)
+            if idx != -1 and weight >= self.similarity_threshold
+        ]
+
+        if not pairs:
+            return {}
+
+        total_weight = sum(w for w, _ in pairs)
+
+        track_scores = defaultdict(float)
+        for weight, idx in pairs:
+            normalized_weight = weight / total_weight
+            for track_uri in self.pid_to_tracks[self.train_pids[idx]]:
+                if track_uri not in already_in_playlist:
+                    track_scores[track_uri] += normalized_weight
+
+        return track_scores
+
     def predict(self, playlist_metadata, playlist_contents, track_metadata, n_recs, g_num):
         if self.approximate:
             self.index.nprobe = self.n_probe
@@ -121,29 +155,19 @@ class TitleEmbeddingModel:
             for i, (pid, sim_scores, neighbor_idx) in enumerate(zip(chunk_pids, weights, top_k_idx)):
                 already_in_playlist = existing_tracks.get(pid, set())
 
-                # Expand k until we have enough tracks, exactly like the original
                 while True:
-                    track_scores = defaultdict(float)
-                    for weight, idx in zip(sim_scores, neighbor_idx):
-                        if idx == -1:
-                            continue
-                        for track_uri in self.pid_to_tracks[self.train_pids[idx]]:
-                            if track_uri not in already_in_playlist:
-                                track_scores[track_uri] += weight
+                    track_scores = self._score_tracks(sim_scores, neighbor_idx, already_in_playlist)
 
                     if len(track_scores) >= n_recs or k >= len(self.train_pids):
                         break
 
                     k = min(k * 2, len(self.train_pids))
-                    new_weights, new_idx = self.index.search(
-                        chunk_queries[i: i + 1], k
-                    )
+                    new_weights, new_idx = self.index.search(chunk_queries[i: i + 1], k)
                     sim_scores   = new_weights[0]
                     neighbor_idx = new_idx[0]
 
                 ranked = sorted(track_scores, key=track_scores.__getitem__, reverse=True)[:n_recs]
 
-                # Global popularity fallback if k expansion wasn't enough
                 if len(ranked) < n_recs:
                     seen = set(ranked) | already_in_playlist
                     for track_uri in self.global_ranking:
