@@ -1,94 +1,158 @@
 import numpy as np
-from sklearn.metrics.pairwise import cosine_similarity
 import pandas as pd
-
+from sklearn.preprocessing import normalize
+from collections import defaultdict
+import faiss
+import pickle
+import os
 
 class TitleEmbeddingModel:
 
-    def __init__(self, top_k_playlists=50, predict_chunk_size=500):
-        self.name = "Title Embedding Model"
-        self.is_ranker=False
-        self.top_k_playlists = top_k_playlists
+    SAVE_DIR = "saved_models/title_embedding_model"
+
+    def __init__(self, top_k_playlists=50, predict_chunk_size=500, approximate=True, n_cells=100, n_probe=10):
+        self.name               = "Title Embedding Model"
+        self.is_ranker          = False
+        self.top_k_playlists    = top_k_playlists
         self.predict_chunk_size = predict_chunk_size
-        self.train_pids = None
-        self.train_matrix = None
-        self.pid_to_tracks = None
-        self.trained = False
+        self.approximate        = approximate
+        self.n_cells            = n_cells
+        self.n_probe            = n_probe
+        self.train_pids         = None
+        self.pid_to_tracks      = None
+        self.global_ranking     = None
+        self.index              = None
+        self.trained            = False
+
+    def _save_exists(self):
+        return (
+            os.path.exists(f"{self.SAVE_DIR}/train_pids.npy") and
+            os.path.exists(f"{self.SAVE_DIR}/meta.pkl") and
+            os.path.exists(f"{self.SAVE_DIR}/index.faiss")
+        )
+
+    def save(self):
+        os.makedirs(self.SAVE_DIR, exist_ok=True)
+        np.save(f"{self.SAVE_DIR}/train_pids.npy", self.train_pids)
+        faiss.write_index(self.index, f"{self.SAVE_DIR}/index.faiss")
+        with open(f"{self.SAVE_DIR}/meta.pkl", "wb") as f:
+            pickle.dump({
+                "pid_to_tracks":  self.pid_to_tracks,
+                "global_ranking": self.global_ranking,
+            }, f)
+        print(f"TitleEmbedding model saved to {self.SAVE_DIR}/")
+
+    def load(self):
+        self.train_pids = np.load(f"{self.SAVE_DIR}/train_pids.npy")
+        self.index      = faiss.read_index(f"{self.SAVE_DIR}/index.faiss")
+        if self.approximate:
+            self.index.nprobe = self.n_probe
+        with open(f"{self.SAVE_DIR}/meta.pkl", "rb") as f:
+            meta = pickle.load(f)
+        self.pid_to_tracks  = meta["pid_to_tracks"]
+        self.global_ranking = meta["global_ranking"]
+        self.trained        = True
+        print(f"TitleEmbedding model loaded from {self.SAVE_DIR}/")
 
     def train(self, playlist_metadata, playlist_contents, track_metadata):
-        """
-        Store training playlist embeddings and their track lists.
-        No track-space averaging — everything stays in playlist space.
-        """
+        if self._save_exists():
+            print("Save file found — loading TitleEmbedding model instead of retraining.")
+            self.load()
+            return
+
         self.pid_to_tracks = (
             playlist_contents.groupby("pid")["track_uri"]
             .apply(list)
             .to_dict()
         )
 
-        train = playlist_metadata[playlist_metadata["pid"].isin(self.pid_to_tracks)].copy()
-        train = train.dropna(subset=["title_bert_embeddings"])
+        track_freq          = defaultdict(int)
+        for tracks in self.pid_to_tracks.values():
+            for t in tracks:
+                track_freq[t] += 1
+        self.global_ranking = sorted(track_freq, key=track_freq.__getitem__, reverse=True)
+
+        train = playlist_metadata[
+            playlist_metadata["pid"].isin(self.pid_to_tracks) &
+            playlist_metadata["title_bert_embeddings"].notna()
+        ].copy()
 
         self.train_pids = train["pid"].to_numpy()
-        self.train_matrix = np.stack(train["title_bert_embeddings"].to_numpy())
-        print(f"Stored {len(self.train_pids)} training playlists. Matrix shape: {self.train_matrix.shape}")
+        train_matrix    = normalize(
+            np.stack(train["title_bert_embeddings"].to_numpy()), norm="l2"
+        ).astype(np.float32)
+
+        dim = train_matrix.shape[1]
+        if self.approximate:
+            quantizer  = faiss.IndexFlatIP(dim)
+            self.index = faiss.IndexIVFFlat(quantizer, dim, self.n_cells, faiss.METRIC_INNER_PRODUCT)
+            self.index.train(train_matrix)
+        else:
+            self.index = faiss.IndexFlatIP(dim)
+
+        self.index.add(train_matrix)
+        print(f"Stored {len(self.train_pids):,} training playlists in faiss index (approximate={self.approximate})")
         self.trained = True
-
-    def _get_recommendations_for_playlist(self, pid, playlist_scores, already_in_playlist, n_recs):
-        """
-        Accumulate weighted track scores from top-k playlists, expanding k
-        until we have enough recommendations or exhaust all training playlists.
-        """
-        max_k = len(self.train_pids)
-        sorted_indices = np.argsort(playlist_scores)[::-1]
-        k = min(self.top_k_playlists, max_k)
-
-        while True:
-            top_k_idx = sorted_indices[:k]
-
-            track_scores = {}
-            for idx in top_k_idx:
-                weight = playlist_scores[idx]
-                for track_uri in self.pid_to_tracks[self.train_pids[idx]]:
-                    if track_uri not in already_in_playlist:
-                        track_scores[track_uri] = track_scores.get(track_uri, 0.0) + weight
-
-            if len(track_scores) >= n_recs or k >= max_k:
-                break
-
-            k = min(k * 2, max_k)
-
-        return sorted(track_scores, key=track_scores.__getitem__, reverse=True)[:n_recs]
+        self.save()
 
     def predict(self, playlist_metadata, playlist_contents, track_metadata, n_recs, g_num):
-        """
-        For each test playlist:
-          1. Find the top-k most similar training playlists by title embedding cosine similarity.
-          2. Aggregate their tracks weighted by similarity score.
-          3. Return the highest scoring tracks not already in the playlist,
-             expanding k as needed to guarantee n_recommendations results.
-        """
+        if self.approximate:
+            self.index.nprobe = self.n_probe
+
         existing_tracks = (
             playlist_contents.groupby("pid")["track_uri"]
             .apply(set)
             .to_dict()
         )
 
-        pids = playlist_metadata["pid"].to_numpy()
-        query_matrix = np.stack(playlist_metadata["title_bert_embeddings"].to_numpy())
+        pids         = playlist_metadata["pid"].to_numpy()
+        query_matrix = normalize(
+            np.stack(playlist_metadata["title_bert_embeddings"].to_numpy()), norm="l2"
+        ).astype(np.float32)
 
         rows = []
         for chunk_start in range(0, len(pids), self.predict_chunk_size):
-            chunk_pids = pids[chunk_start: chunk_start + self.predict_chunk_size]
+            chunk_pids    = pids[chunk_start: chunk_start + self.predict_chunk_size]
             chunk_queries = query_matrix[chunk_start: chunk_start + self.predict_chunk_size]
 
-            scores = cosine_similarity(chunk_queries, self.train_matrix)
+            k = self.top_k_playlists
+            weights, top_k_idx = self.index.search(chunk_queries, k)
 
-            for pid, playlist_scores in zip(chunk_pids, scores):
+            for i, (pid, sim_scores, neighbor_idx) in enumerate(zip(chunk_pids, weights, top_k_idx)):
                 already_in_playlist = existing_tracks.get(pid, set())
-                ranked_uris = self._get_recommendations_for_playlist(pid, playlist_scores, already_in_playlist, n_recs)
 
-                for prediction_num, track_uri in enumerate(ranked_uris):
+                # Expand k until we have enough tracks, exactly like the original
+                while True:
+                    track_scores = defaultdict(float)
+                    for weight, idx in zip(sim_scores, neighbor_idx):
+                        if idx == -1:
+                            continue
+                        for track_uri in self.pid_to_tracks[self.train_pids[idx]]:
+                            if track_uri not in already_in_playlist:
+                                track_scores[track_uri] += weight
+
+                    if len(track_scores) >= n_recs or k >= len(self.train_pids):
+                        break
+
+                    k = min(k * 2, len(self.train_pids))
+                    new_weights, new_idx = self.index.search(
+                        chunk_queries[i: i + 1], k
+                    )
+                    sim_scores   = new_weights[0]
+                    neighbor_idx = new_idx[0]
+
+                ranked = sorted(track_scores, key=track_scores.__getitem__, reverse=True)[:n_recs]
+
+                # Global popularity fallback if k expansion wasn't enough
+                if len(ranked) < n_recs:
+                    seen = set(ranked) | already_in_playlist
+                    for track_uri in self.global_ranking:
+                        if track_uri not in seen:
+                            ranked.append(track_uri)
+                            if len(ranked) == n_recs:
+                                break
+
+                for prediction_num, track_uri in enumerate(ranked):
                     rows.append((pid, prediction_num, track_uri))
 
         return pd.DataFrame(rows, columns=["pid", "prediction_num", "track_uri"])
