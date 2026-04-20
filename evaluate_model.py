@@ -10,11 +10,11 @@ from models.MFModel import MFModel
 
 from evaluation_funcs import compute_all_metrics, check_rules
 
-if len(sys.argv) != 2 or (sys.argv[1] != "all" and int(sys.argv[1]) not in range(0, 11)):
-    print("usage: python evaluate_model.py [0-10 or 'all']")
+if len(sys.argv) != 2 or (sys.argv[1] != "all" and int(sys.argv[1]) not in range(1, 11)):
+    print("usage: python evaluate_model.py [1-10 or 'all']")
     sys.exit()
 
-groups = list(range(11)) if sys.argv[1] == "all" else [int(sys.argv[1])]
+groups = list(range(1, 11)) if sys.argv[1] == "all" else [int(sys.argv[1])]
 
 test_sets = []
 train_sets = []
@@ -95,7 +95,6 @@ all_seed_contents = pd.concat([
 
 
 group_names = {
-    0: "No title, no tracks (baseline)",
     1: "Title only (no tracks)",
     2: "Title and first track",
     3: "Title and first 5 tracks",
@@ -167,10 +166,9 @@ for model in models:
             track_metadata
         )
         
-        if test_set['group'] > 0:
-            all_r_prec.append(r_prec)
-            all_ndcg.append(ndcg)
-            all_clicks.append(clicks)
+        all_r_prec.append(r_prec)
+        all_ndcg.append(ndcg)
+        all_clicks.append(clicks)
         
         # Store in results dictionary
         group_num = test_set['group']

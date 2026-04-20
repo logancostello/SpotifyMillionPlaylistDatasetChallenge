@@ -9,27 +9,6 @@ SEED = 123
 def get_empty_embedding(playlist_metadata):
     return [0] * playlist_metadata["title_bert_embeddings"].apply(lambda x: len(x)).max()
 
-# No title, 0 tracks
-def create_test_set_0(playlist_metadata, playlist_contents, dir, n):
-    test_playlists = playlist_metadata[(playlist_metadata["num_tracks"] >= 10) & (playlist_metadata["num_tracks"] <= 50)].sample(n, random_state=SEED)
-    test_playlists["num_samples"] = 0
-    test_playlists["num_holdouts"] = test_playlists["num_tracks"] - test_playlists["num_samples"]
-    test_playlists["name"] = ""
-    empty_embedding = get_empty_embedding(test_playlists)
-    test_playlists["title_bert_embeddings"] = [empty_embedding] * len(test_playlists)
-    test_playlists["group"] = 0
-
-    filtered_contents = test_playlists[["pid"]].merge(playlist_contents, on="pid", how="inner")
-    test_contents = filtered_contents[filtered_contents["position"] < 0]
-    holdout_contents = filtered_contents[filtered_contents["position"] >= 0]
-
-    test_playlists.to_parquet(f"data/{dir}/0/playlist_metadata.parquet", index=False)
-    test_contents.to_parquet(f"data/{dir}/0/playlist_contents.parquet", index=False)
-    holdout_contents.to_parquet(f"data/{dir}/0/holdout_contents.parquet", index=False)
-
-    return set(test_playlists["pid"])
-
-
 # Title, 0 tracks
 def create_test_set_1(playlist_metadata, playlist_contents, dir, n):
     test_playlists = playlist_metadata[(playlist_metadata["num_tracks"] >= 10) & (playlist_metadata["num_tracks"] <= 50)].sample(n, random_state=SEED+1)
@@ -214,15 +193,14 @@ if __name__ == '__main__':
         print("usage: python create_train_test_split.py [challenge group num]")
         sys.exit()
 
-    if sys.argv[1] != "all" and int(sys.argv[1]) not in range(0, 11):
-        print("must give num 0-10 or all")
+    if sys.argv[1] != "all" and int(sys.argv[1]) not in range(1, 11):
+        print("must give num 1-10 or all")
         sys.exit()
         
     playlist_metadata = pd.read_parquet("data/original/playlist_metadata.parquet")
     playlist_contents = pd.read_parquet("data/original/playlist_contents.parquet")
 
     funcs = {
-        "0": create_test_set_0,
         "1": create_test_set_1,
         "2": create_test_set_2,
         "3": create_test_set_3,
