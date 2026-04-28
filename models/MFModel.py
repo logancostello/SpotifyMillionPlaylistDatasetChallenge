@@ -84,38 +84,39 @@ class MFModel:
         self.save()
 
     def predict(self, playlist_metadata, playlist_contents, track_metadata, n_recs, g_num):
-        existing_tracks = (
-            playlist_contents.groupby("pid")["track_uri"]
-            .apply(set)
-            .to_dict()
-        )
+        pids = playlist_metadata["pid"].values
 
-        global_scores = np.array(self.interactions.sum(axis=0)).flatten()
-        top_global    = np.argsort(global_scores)[::-1]
+        warm_pids = [pid for pid in pids if pid in self.pid_to_idx]
+        cold_pids = [pid for pid in pids if pid not in self.pid_to_idx]
 
-        rows = []
-        for pid in playlist_metadata["pid"]:
-            already_in_playlist = existing_tracks.get(pid, set())
-            known_indices = [
-                self.track_uri_to_idx[t]
-                for t in already_in_playlist
-                if t in self.track_uri_to_idx
-            ]
+        dfs = []
 
-            if not known_indices or pid not in self.pid_to_idx:
-                for prediction_num, idx in enumerate(top_global[:n_recs]):
-                    rows.append((pid, prediction_num, self.idx_to_track_uri[idx], float(global_scores[idx])))
-                continue
-
-            user_idx = self.pid_to_idx[pid]
-            item_ids, scores = self.model.recommend(
-                userid=user_idx,
-                user_items=self.interactions[user_idx],
+        if warm_pids:
+            user_indices = [self.pid_to_idx[pid] for pid in warm_pids]
+            all_item_ids, all_scores = self.model.recommend(
+                userid=user_indices,
+                user_items=self.interactions[user_indices],
                 N=n_recs,
                 filter_already_liked_items=True,
             )
+            track_uris = np.vectorize(self.idx_to_track_uri.get)(all_item_ids.ravel())
+            dfs.append(pd.DataFrame({
+                "pid":            np.repeat(warm_pids, n_recs),
+                "prediction_num": np.tile(np.arange(n_recs), len(warm_pids)),
+                "track_uri":      track_uris,
+                "mf_score":       all_scores.ravel(),
+            }))
 
-            for prediction_num, (idx, score) in enumerate(zip(item_ids, scores)):
-                rows.append((pid, prediction_num, self.idx_to_track_uri[idx], float(score)))
+        if cold_pids:
+            global_scores = np.array(self.interactions.sum(axis=0)).flatten()
+            top_global    = np.argsort(global_scores)[::-1][:n_recs]
+            top_uris      = np.vectorize(self.idx_to_track_uri.get)(top_global)
+            top_scores    = global_scores[top_global]
+            dfs.append(pd.DataFrame({
+                "pid":            np.repeat(cold_pids, n_recs),
+                "prediction_num": np.tile(np.arange(n_recs), len(cold_pids)),
+                "track_uri":      np.tile(top_uris, len(cold_pids)),
+                "mf_score":       np.tile(top_scores, len(cold_pids)),
+            }))
 
-        return pd.DataFrame(rows, columns=["pid", "prediction_num", "track_uri", "mf_score"])
+        return pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame(columns=["pid", "prediction_num", "track_uri", "mf_score"])
