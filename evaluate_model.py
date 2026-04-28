@@ -32,66 +32,32 @@ for i in groups:
         'holdout_contents':  pd.read_parquet(f"data/train/{i}/holdout_contents.parquet"),
     })
 
-all_track_uris = pd.concat([
-    *[ts['playlist_contents']['track_uri'] for ts in test_sets],
-    *[ts['playlist_contents']['track_uri'] for ts in train_sets],
-    *[ts['holdout_contents']['track_uri']  for ts in test_sets],
-    *[ts['holdout_contents']['track_uri']  for ts in train_sets],
-]).unique()
+ranker_train_metadata = pd.concat([ts['playlist_metadata'] for ts in train_sets], ignore_index=True)
+ranker_train_contents = pd.concat([ts['playlist_contents'] for ts in train_sets], ignore_index=True)
+ranker_train_holdouts = pd.concat([ts['holdout_contents']  for ts in train_sets], ignore_index=True)
 
-track_metadata = pd.read_parquet("data/original/track_metadata.parquet")
-track_metadata = track_metadata[track_metadata["track_uri"].isin(all_track_uris)]
-
-train_playlist_metadata = pd.concat([ts['playlist_metadata'] for ts in train_sets], ignore_index=True)
-train_playlist_contents = pd.concat([ts['playlist_contents'] for ts in train_sets], ignore_index=True)
-train_playlist_holdouts = pd.concat([ts['holdout_contents']  for ts in train_sets], ignore_index=True)
-
-# ── Candidate model training data ─────────────────────────────────────────────
-# All playlists: full contents for train, seed-only contents for test
 original_metadata = pd.read_parquet("data/original/playlist_metadata.parquet")
 original_contents = pd.read_parquet("data/original/playlist_contents.parquet")
+track_metadata = pd.read_parquet("data/original/track_metadata.parquet")
 
+train_pids = ranker_train_metadata["pid"].unique()
 test_pids = pd.concat([ts['playlist_metadata']['pid'] for ts in test_sets]).unique()
+held_pids  = set(train_pids) | set(test_pids)
 
 candidate_train_metadata = pd.concat([
-    original_metadata[~original_metadata["pid"].isin(test_pids)],
+    original_metadata[~original_metadata["pid"].isin(held_pids)],
+    ranker_train_metadata,
     *[ts['playlist_metadata'] for ts in test_sets],
 ], ignore_index=True)
 
 candidate_train_contents = pd.concat([
-    original_contents[~original_contents["pid"].isin(test_pids)],
-    *[ts['playlist_contents'] for ts in test_sets],   # seed-only for test playlists
+    original_contents[~original_contents["pid"].isin(held_pids)],
+    ranker_train_contents,
+    *[ts['playlist_contents'] for ts in test_sets], 
 ], ignore_index=True)
 
-# ── Ranker training data ───────────────────────────────────────────────────────
-# Train splits (seeds + holdouts as labels) + test seeds (no holdouts)
-ranker_train_metadata = pd.concat([
-    train_playlist_metadata,
-    *[ts['playlist_metadata'] for ts in test_sets],
-], ignore_index=True)
 
-ranker_train_contents = pd.concat([
-    train_playlist_contents,
-    train_playlist_holdouts,
-    *[ts['playlist_contents'] for ts in test_sets],
-], ignore_index=True)
-
-all_contents = pd.concat([
-    train_playlist_contents,
-    train_playlist_holdouts,
-    *[ts['playlist_contents'] for ts in test_sets]
-], ignore_index=True)
-
-all_metadata = pd.concat([
-    train_playlist_metadata,
-    *[ts['playlist_metadata'] for ts in test_sets]
-], ignore_index=True)
-
-# Seed-only contents for rankers (holdouts kept as labels)
-all_seed_contents = pd.concat([
-    train_playlist_contents,
-    *[ts['playlist_contents'] for ts in test_sets]
-], ignore_index=True)
+del original_contents, original_metadata
 
 
 group_names = {
@@ -114,10 +80,10 @@ artist_title_model = ArtistAndTitleModel(artist_pop_model, title_embedding_model
 mf_model = MFModel()
 
 models = [
-    global_pop_model,
-    artist_pop_model,
-    title_embedding_model,
-    artist_title_model,
+    # global_pop_model,
+    # artist_pop_model,
+    # title_embedding_model,
+    # artist_title_model,
     mf_model
 ]
 
@@ -131,9 +97,9 @@ for model in models:
     
     # Train once
     if model.is_ranker:
-        model.train(ranker_train_metadata, ranker_train_contents, train_playlist_holdouts, track_metadata)
+        model.train(ranker_train_metadata, ranker_train_contents, ranker_train_holdouts, ranker_train_metadata)
     else:
-        model.train(candidate_train_metadata, candidate_train_contents, track_metadata)
+        model.train(candidate_train_metadata, candidate_train_contents, candidate_train_metadata)
 
     
     # Track metrics for averaging
