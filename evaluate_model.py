@@ -7,6 +7,7 @@ from models.ArtistPopularityModel import ArtistPopularityModel
 from models.TitleEmbeddingModel import TitleEmbeddingModel
 from models.ArtistAndTitleModel import ArtistAndTitleModel
 from models.MFModel import MFModel
+from models.RankingModel import RankingModel
 
 from evaluation_funcs import compute_all_metrics, check_rules
 
@@ -78,13 +79,15 @@ artist_pop_model = ArtistPopularityModel()
 title_embedding_model = TitleEmbeddingModel()
 artist_title_model = ArtistAndTitleModel(artist_pop_model, title_embedding_model)
 mf_model = MFModel()
+ranking_model = RankingModel(mf_model)
 
 models = [
     # global_pop_model,
     # artist_pop_model,
     # title_embedding_model,
     # artist_title_model,
-    mf_model
+    # mf_model,
+    ranking_model
 ]
 
 # Store results for CSV output
