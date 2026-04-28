@@ -104,18 +104,18 @@ class MFModel:
 
             if not known_indices or pid not in self.pid_to_idx:
                 for prediction_num, idx in enumerate(top_global[:n_recs]):
-                    rows.append((pid, prediction_num, self.idx_to_track_uri[idx]))
+                    rows.append((pid, prediction_num, self.idx_to_track_uri[idx], float(global_scores[idx])))
                 continue
 
             user_idx = self.pid_to_idx[pid]
-            item_ids, _ = self.model.recommend(
+            item_ids, scores = self.model.recommend(
                 userid=user_idx,
                 user_items=self.interactions[user_idx],
                 N=n_recs,
                 filter_already_liked_items=True,
             )
 
-            for prediction_num, idx in enumerate(item_ids):
-                rows.append((pid, prediction_num, self.idx_to_track_uri[idx]))
+            for prediction_num, (idx, score) in enumerate(zip(item_ids, scores)):
+                rows.append((pid, prediction_num, self.idx_to_track_uri[idx], float(score)))
 
-        return pd.DataFrame(rows, columns=["pid", "prediction_num", "track_uri"])
+        return pd.DataFrame(rows, columns=["pid", "prediction_num", "track_uri", "mf_score"])
