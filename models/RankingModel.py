@@ -34,7 +34,7 @@ class RankingModel:
 
     def train(self, playlist_metadata, playlist_contents, playlist_holdouts, track_metadata):
         if not self.mf_model.trained:
-            self.mf_model.train(playlist_metadata, playlist_contents, track_metadata)
+            raise RuntimeError("MF model not trained yet")
 
         candidates = self.generate_candidates(playlist_metadata, playlist_contents, playlist_holdouts, track_metadata)
 

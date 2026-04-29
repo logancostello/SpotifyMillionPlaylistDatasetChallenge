@@ -81,7 +81,16 @@ artist_title_model = ArtistAndTitleModel(artist_pop_model, title_embedding_model
 mf_model = MFModel()
 ranking_model = RankingModel(mf_model)
 
-models = [
+train_models = [
+    # global_pop_model,
+    # artist_pop_model,
+    # title_embedding_model,
+    # artist_title_model,
+    mf_model,
+    ranking_model
+]
+
+test_models = [
     # global_pop_model,
     # artist_pop_model,
     # title_embedding_model,
@@ -90,20 +99,19 @@ models = [
     ranking_model
 ]
 
+for model in train_models:
+    if model.is_ranker:
+        model.train(ranker_train_metadata, ranker_train_contents, ranker_train_holdouts, track_metadata)
+    else:
+        model.train(candidate_train_metadata, candidate_train_contents, track_metadata)
+
 # Store results for CSV output
 results = []
 
-for model in models:
+for model in test_models:
     print(f"\n{'='*50}")
     print(f"MODEL: {model.name}")
-    print(f"{'='*50}")
-    
-    # Train once
-    if model.is_ranker:
-        model.train(ranker_train_metadata, ranker_train_contents, ranker_train_holdouts, ranker_train_metadata)
-    else:
-        model.train(candidate_train_metadata, candidate_train_contents, candidate_train_metadata)
-
+    print(f"{'='*50}")    
     
     # Track metrics for averaging
     all_r_prec = []
