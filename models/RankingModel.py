@@ -16,7 +16,7 @@ class RankingModel:
             verbose=-1,
         )
         self.trained  = False
-        self.features = ["mf_score", "num_tracks", "has_title", "random_order"]
+        self.features = ["mf_score", "num_tracks", "has_title", "random_order", "n_artist_tracks_in_playlist", "n_album_tracks_in_playlist"]
 
     def generate_candidates(self, playlist_metadata, playlist_contents, playlist_holdouts, track_metadata):
         print("Generating candidates for training...")
@@ -28,8 +28,34 @@ class RankingModel:
 
         return candidates
     
-    def build_features(self, candidates, playlist_metadata):
+    def build_features(self, candidates, playlist_metadata, playlist_contents, track_metadata):
+        # Playlist: Add group related features
         candidates = candidates.merge(playlist_metadata[["pid", "num_tracks", "has_title", "random_order"]], on="pid")
+
+        # Interaction: Get number of times the artist appears in the playlist
+        candidates = candidates.merge(track_metadata[["track_uri", "artist_uri", "album_uri"]], on="track_uri")
+        playlist_contents_enriched = (
+            playlist_contents[["pid", "track_uri"]]
+            .merge(track_metadata[["track_uri", "artist_uri", "album_uri"]], on="track_uri")
+        )
+        artist_counts = (
+            playlist_contents_enriched
+            .groupby(["pid", "artist_uri"])
+            .size()
+            .reset_index(name="n_artist_tracks_in_playlist")
+        )
+        album_counts = (
+            playlist_contents_enriched
+            .groupby(["pid", "album_uri"])
+            .size()
+            .reset_index(name="n_album_tracks_in_playlist")
+        )
+
+        candidates = candidates.merge(artist_counts, on=["pid", "artist_uri"], how="left")
+        candidates = candidates.merge(album_counts, on=["pid", "album_uri"], how="left")
+        candidates["n_artist_tracks_in_playlist"] = candidates["n_artist_tracks_in_playlist"].fillna(0)
+        candidates["n_album_tracks_in_playlist"] = candidates["n_album_tracks_in_playlist"].fillna(0)
+
         return candidates
 
     def train(self, playlist_metadata, playlist_contents, playlist_holdouts, track_metadata):
@@ -38,7 +64,7 @@ class RankingModel:
 
         candidates = self.generate_candidates(playlist_metadata, playlist_contents, playlist_holdouts, track_metadata)
 
-        candidates = self.build_features(candidates, playlist_metadata)
+        candidates = self.build_features(candidates, playlist_metadata, playlist_contents, track_metadata)
 
         candidates = candidates.sort_values("pid")
         group_sizes = candidates.groupby("pid", sort=False).size().values
@@ -49,7 +75,7 @@ class RankingModel:
 
     def predict(self, playlist_metadata, playlist_contents, track_metadata, n_recs, g_num):
         candidates = self.mf_model.predict(playlist_metadata, playlist_contents, track_metadata, n_recs=500, g_num=None)
-        candidates = self.build_features(candidates, playlist_metadata)
+        candidates = self.build_features(candidates, playlist_metadata, playlist_contents, track_metadata)
 
         candidates["score"] = self.ranker.predict(candidates[self.features])
         candidates["prediction_num"] = (
