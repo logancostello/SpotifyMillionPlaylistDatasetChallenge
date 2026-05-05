@@ -101,7 +101,7 @@ test_models = [
 
 for model in train_models:
     if model.is_ranker:
-        model.train(ranker_train_metadata, ranker_train_contents, ranker_train_holdouts, track_metadata)
+        model.train(ranker_train_metadata, ranker_train_contents, ranker_train_holdouts, track_metadata, candidate_train_metadata, candidate_train_contents)
     else:
         model.train(candidate_train_metadata, candidate_train_contents, track_metadata)
 
@@ -126,13 +126,25 @@ for model in test_models:
         if len(test_sets) > 1:
             print(f"\n--- Group {test_set['group']}: {group_names[test_set['group']]} ---")
         
-        prediction_df = model.predict(
-            test_set['playlist_metadata'], 
-            test_set['playlist_contents'], 
-            track_metadata,
-            500,
-            test_set['group']
-        )
+
+        if model.is_ranker:
+            prediction_df = model.predict(
+                test_set['playlist_metadata'], 
+                test_set['playlist_contents'], 
+                track_metadata,
+                500,
+                test_set['group'],
+                candidate_train_metadata,
+                candidate_train_contents
+            )
+        else: 
+             prediction_df = model.predict(
+                test_set['playlist_metadata'], 
+                test_set['playlist_contents'], 
+                track_metadata,
+                500,
+                test_set['group']
+            )
 
         check_rules(prediction_df, test_set["playlist_contents"])
         
