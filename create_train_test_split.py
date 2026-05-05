@@ -2,7 +2,7 @@ import sys
 import pandas as pd
 import math
 
-NUM_TRAIN_PLAYLISTS = 5000
+NUM_TRAIN_PLAYLISTS = 2500
 NUM_TEST_PLAYLISTS = 250
 SEED = 123
 

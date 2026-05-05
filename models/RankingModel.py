@@ -1,6 +1,11 @@
 from lightgbm import LGBMRanker
+import lightgbm as lgb
 import pandas as pd
 import numpy as np
+
+# ignore a warning for logging the ndcg@500
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning, module="lightgbm")
 
 class RankingModel:
 
@@ -11,9 +16,10 @@ class RankingModel:
         self.ranker = LGBMRanker(
             objective="lambdarank",
             metric="ndcg",
-            n_estimators=100,
+            n_estimators=400,
             n_jobs=1,
             verbose=-1,
+            eval_at=[500],
         )
         self.trained  = False
         self.features = ["mf_score", "num_tracks", "has_title", "random_order", "n_artist_tracks_in_playlist", "n_album_tracks_in_playlist"]
@@ -63,14 +69,30 @@ class RankingModel:
             raise RuntimeError("MF model not trained yet")
 
         candidates = self.generate_candidates(playlist_metadata, playlist_contents, playlist_holdouts, track_metadata)
-
         candidates = self.build_features(candidates, playlist_metadata, playlist_contents, track_metadata)
-
         candidates = candidates.sort_values("pid")
-        group_sizes = candidates.groupby("pid", sort=False).size().values
 
-        print(f"Training on {len(candidates):,} candidates ({candidates['label'].sum():,} positive)...")
-        self.ranker.fit(candidates[self.features], candidates["label"], group=group_sizes)
+        # Split pids into train/val to check overfitting
+        pids = candidates["pid"].unique()
+        val_pids = set(pd.Series(pids).sample(frac=0.1, random_state=42))
+        train_mask = ~candidates["pid"].isin(val_pids)
+
+        train_df = candidates[train_mask]
+        val_df = candidates[~train_mask]
+
+        train_groups = train_df.groupby("pid", sort=False).size().values
+        val_groups = val_df.groupby("pid", sort=False).size().values
+
+        print(f"Training on {len(train_df):,} candidates ({train_df['label'].sum():,} positive)...")
+        self.ranker.fit(
+            train_df[self.features], train_df["label"], group=train_groups,
+            eval_set=[
+                (train_df[self.features], train_df["label"]),
+                (val_df[self.features], val_df["label"]),
+            ],
+            eval_group=[train_groups, val_groups],
+            callbacks=[lgb.log_evaluation(period=10), lgb.early_stopping(25)],
+        )
         self.trained = True
 
     def predict(self, playlist_metadata, playlist_contents, track_metadata, n_recs, g_num):
