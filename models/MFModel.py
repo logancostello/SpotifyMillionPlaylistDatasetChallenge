@@ -16,6 +16,7 @@ class MFModel:
         self.model            = implicit.als.AlternatingLeastSquares(
             factors=128,
             iterations=10,
+            regularization=0.0025,
             num_threads=4,
             random_state=42,
         )
@@ -78,10 +79,15 @@ class MFModel:
 
         self.interactions = self._build_interaction_matrix(playlist_contents)
 
+        alpha = 50
+        weighted = self.interactions.copy()
+        weighted.data = 1.0 + alpha * weighted.data
+
         print(f"Fitting ALS on {self.interactions.shape[0]:,} playlists x {self.interactions.shape[1]:,} tracks...")
-        self.model.fit(self.interactions)
+        self.model.fit(weighted)
         self.trained = True
         self.save()
+
 
     def predict(self, playlist_metadata, playlist_contents, track_metadata, n_recs, g_num):
         pids = playlist_metadata["pid"].values
