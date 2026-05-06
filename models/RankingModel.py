@@ -1,9 +1,8 @@
-from lightgbm import LGBMRanker
+from lightgbm import LGBMClassifier
 import lightgbm as lgb
 import pandas as pd
 import numpy as np
 
-# ignore a warning for logging the ndcg@500
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning, module="lightgbm")
 
@@ -13,27 +12,26 @@ class RankingModel:
         self.name = "Ranking Model"
         self.is_ranker = True
         self.mf_model = mf_model
-        self.ranker = LGBMRanker(
-            objective="lambdarank",
-            metric="ndcg",
+        self.classifier = LGBMClassifier(
+            objective="binary",
+            metric="binary_logloss",
             n_estimators=400,
             n_jobs=1,
             verbose=-1,
-            eval_at=[500],
         )
-        self.trained  = False
+        self.trained = False
         self.features = [
-            "mf_score", 
-            "num_samples", 
-            "has_title", 
-            "random_order", 
-            "n_artist_tracks_in_playlist", 
+            "mf_score",
+            "num_samples",
+            "has_title",
+            "random_order",
+            "n_artist_tracks_in_playlist",
             "n_album_tracks_in_playlist",
             "track_pop_count",
             "artist_pop_count",
             "album_pop_count"
         ]
-        
+
     def generate_candidates(self, playlist_metadata, playlist_contents, playlist_holdouts, track_metadata):
         print("Generating candidates for training...")
         candidates = self.mf_model.predict(playlist_metadata, playlist_contents, track_metadata, n_recs=500, g_num=None)
@@ -43,14 +41,12 @@ class RankingModel:
         candidates["label"] = candidates["label"].fillna(0).astype(np.int8)
 
         return candidates
-    
+
     def build_features(self, candidates, playlist_metadata, train_contents, track_metadata, feature_contents):
-        # Playlist: Add group related features
         candidates = candidates.merge(playlist_metadata[["pid", "num_samples", "has_title", "random_order"]], on="pid")
         candidates["has_title"] = candidates["has_title"].astype(bool)
         candidates["random_order"] = candidates["random_order"].astype(bool)
 
-        # Interaction: Get number of times the artist appears in the playlist
         candidates = candidates.merge(track_metadata[["track_uri", "artist_uri", "album_uri"]], on="track_uri")
         train_contents_enriched = (
             train_contents[["pid", "track_uri"]]
@@ -60,6 +56,7 @@ class RankingModel:
             feature_contents[["pid", "track_uri"]]
             .merge(track_metadata[["track_uri", "artist_uri", "album_uri"]], on="track_uri")
         )
+
         artist_counts = (
             train_contents_enriched
             .groupby(["pid", "artist_uri"])
@@ -78,7 +75,6 @@ class RankingModel:
         candidates["n_artist_tracks_in_playlist"] = candidates["n_artist_tracks_in_playlist"].fillna(0)
         candidates["n_album_tracks_in_playlist"] = candidates["n_album_tracks_in_playlist"].fillna(0)
 
-        # Track: Get global popularity of the track
         filtered_enriched_feature_contents = feature_contents_enriched[feature_contents_enriched["track_uri"].isin(train_contents_enriched["track_uri"])]
         track_pop_count = (
             filtered_enriched_feature_contents
@@ -86,14 +82,12 @@ class RankingModel:
             .size()
             .reset_index(name="track_pop_count")
         )
-
         artist_pop_count = (
             filtered_enriched_feature_contents
             .groupby("artist_uri")
             .size()
             .reset_index(name="artist_pop_count")
         )
-
         album_pop_count = (
             filtered_enriched_feature_contents
             .groupby("album_uri")
@@ -116,9 +110,7 @@ class RankingModel:
 
         candidates = self.generate_candidates(playlist_metadata, playlist_contents, playlist_holdouts, track_metadata)
         candidates = self.build_features(candidates, playlist_metadata, playlist_contents, track_metadata, feature_playlist_contents)
-        candidates = candidates.sort_values("pid")
 
-        # Split pids into train/val to check overfitting
         pids = candidates["pid"].unique()
         val_pids = set(pd.Series(pids).sample(frac=0.1, random_state=42))
         train_mask = ~candidates["pid"].isin(val_pids)
@@ -126,17 +118,11 @@ class RankingModel:
         train_df = candidates[train_mask]
         val_df = candidates[~train_mask]
 
-        train_groups = train_df.groupby("pid", sort=False).size().values
-        val_groups = val_df.groupby("pid", sort=False).size().values
-
         print(f"Training on {len(train_df):,} candidates ({train_df['label'].sum():,} positive)...")
-        self.ranker.fit(
-            train_df[self.features], train_df["label"], group=train_groups,
-            eval_set=[
-                (train_df[self.features], train_df["label"]),
-                (val_df[self.features], val_df["label"]),
-            ],
-            eval_group=[train_groups, val_groups],
+        self.classifier.fit(
+            train_df[self.features], train_df["label"],
+            eval_set=[(train_df[self.features], train_df["label"]),
+                      (val_df[self.features], val_df["label"])],
             callbacks=[lgb.log_evaluation(period=10), lgb.early_stopping(25)],
         )
         self.trained = True
@@ -145,7 +131,7 @@ class RankingModel:
         candidates = self.mf_model.predict(playlist_metadata, playlist_contents, track_metadata, n_recs=500, g_num=None)
         candidates = self.build_features(candidates, playlist_metadata, playlist_contents, track_metadata, feature_playlist_contents)
 
-        candidates["score"] = self.ranker.predict(candidates[self.features])
+        candidates["score"] = self.classifier.predict_proba(candidates[self.features])[:, 1]
         candidates["prediction_num"] = (
             candidates.groupby("pid")["score"]
             .rank(ascending=False, method="first")
