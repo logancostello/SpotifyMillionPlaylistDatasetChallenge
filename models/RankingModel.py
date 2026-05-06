@@ -24,7 +24,7 @@ class RankingModel:
         self.trained  = False
         self.features = [
             "mf_score", 
-            "num_tracks", 
+            "num_samples", 
             "has_title", 
             "random_order", 
             "n_artist_tracks_in_playlist", 
@@ -33,7 +33,7 @@ class RankingModel:
             "artist_pop_count",
             "album_pop_count"
         ]
-
+        
     def generate_candidates(self, playlist_metadata, playlist_contents, playlist_holdouts, track_metadata):
         print("Generating candidates for training...")
         candidates = self.mf_model.predict(playlist_metadata, playlist_contents, track_metadata, n_recs=500, g_num=None)
@@ -46,7 +46,7 @@ class RankingModel:
     
     def build_features(self, candidates, playlist_metadata, train_contents, track_metadata, feature_contents):
         # Playlist: Add group related features
-        candidates = candidates.merge(playlist_metadata[["pid", "num_tracks", "has_title", "random_order"]], on="pid")
+        candidates = candidates.merge(playlist_metadata[["pid", "num_samples", "has_title", "random_order"]], on="pid")
         candidates["has_title"] = candidates["has_title"].astype(bool)
         candidates["random_order"] = candidates["random_order"].astype(bool)
 
@@ -115,7 +115,7 @@ class RankingModel:
             raise RuntimeError("MF model not trained yet")
 
         candidates = self.generate_candidates(playlist_metadata, playlist_contents, playlist_holdouts, track_metadata)
-        candidates = self.build_features(candidates, feature_playlist_metadata, playlist_contents, track_metadata, feature_playlist_contents)
+        candidates = self.build_features(candidates, playlist_metadata, playlist_contents, track_metadata, feature_playlist_contents)
         candidates = candidates.sort_values("pid")
 
         # Split pids into train/val to check overfitting
@@ -152,8 +152,9 @@ class RankingModel:
             .astype(int) - 1
         )
 
-        return (
+        preds = (
             candidates[candidates["prediction_num"] < n_recs][["pid", "prediction_num", "track_uri"]]
             .sort_values(["pid", "prediction_num"])
             .reset_index(drop=True)
         )
+        return preds
