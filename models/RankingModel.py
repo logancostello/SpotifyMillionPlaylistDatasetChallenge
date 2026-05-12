@@ -9,10 +9,11 @@ warnings.filterwarnings("ignore", category=UserWarning, module="lightgbm")
 
 class RankingModel:
 
-    def __init__(self, mf_model):
+    def __init__(self, mf_model, title_model):
         self.name = "Ranking Model"
         self.is_ranker = True
         self.mf_model = mf_model
+        self.title_model = title_model
         self.classifier = LGBMClassifier(
             objective="binary",
             metric="binary_logloss",
@@ -32,7 +33,8 @@ class RankingModel:
             "artist_pop_count",
             "album_pop_count",
             "same_artist_as_last",
-            "same_album_as_last"
+            "same_album_as_last",
+            "title_score"
         ]
 
     def generate_candidates(self, playlist_metadata, playlist_contents, playlist_holdouts, track_metadata):
@@ -129,6 +131,9 @@ class RankingModel:
         candidates["track_pop_count"] = candidates["track_pop_count"].fillna(0)
         candidates["artist_pop_count"] = candidates["artist_pop_count"].fillna(0)
         candidates["album_pop_count"] = candidates["album_pop_count"].fillna(0)
+
+        # Add title based features
+        candidates = candidates.merge(self.title_model.score_tracks(playlist_metadata, candidates), on=['pid', 'track_uri'])
 
         return candidates
 

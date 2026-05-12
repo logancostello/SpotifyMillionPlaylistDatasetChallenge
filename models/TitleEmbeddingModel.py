@@ -180,3 +180,54 @@ class TitleEmbeddingModel:
                     rows.append((pid, prediction_num, track_uri))
 
         return pd.DataFrame(rows, columns=["pid", "prediction_num", "track_uri"])
+    
+    def score_tracks(self, playlist_metadata, pid_candidate_pairs):
+        if isinstance(pid_candidate_pairs, pd.DataFrame):
+            pairs_df = pid_candidate_pairs[["pid", "track_uri"]]
+        else:
+            pairs_df = pd.DataFrame(pid_candidate_pairs, columns=["pid", "track_uri"])
+
+        # Build a set of candidates per pid for fast lookup
+        pid_to_candidates = pairs_df.groupby("pid")["track_uri"].apply(set).to_dict()
+
+        pids = playlist_metadata["pid"].to_numpy()
+        query_matrix = normalize(
+            np.stack(playlist_metadata["title_bert_embeddings"].to_numpy()), norm="l2"
+        ).astype(np.float32)
+
+        # Search all queries at once
+        k = self.top_k_playlists
+        weights, top_k_idx = self.index.search(query_matrix, k)
+
+        rows = []
+        for pid, sim_scores, neighbor_idx in zip(pids, weights, top_k_idx):
+            candidates = pid_to_candidates.get(pid, set())
+            if not candidates:
+                continue
+
+            # Filter to valid neighbors above threshold
+            pairs = [
+                (w ** self.weight_temperature, idx)
+                for w, idx in zip(sim_scores, neighbor_idx)
+                if idx != -1 and w >= self.similarity_threshold
+            ]
+            if not pairs:
+                # No similar playlists found — all candidates get 0
+                for track_uri in candidates:
+                    rows.append((pid, track_uri, 0.0))
+                continue
+
+            total_weight = sum(w for w, _ in pairs)
+
+            # Only accumulate scores for candidate tracks
+            track_scores = defaultdict(float)
+            for weight, idx in pairs:
+                normalized_weight = weight / total_weight
+                for track_uri in self.pid_to_tracks[self.train_pids[idx]]:
+                    if track_uri in candidates:
+                        track_scores[track_uri] += normalized_weight
+
+            for track_uri in candidates:
+                rows.append((pid, track_uri, track_scores.get(track_uri, 0.0)))
+
+        return pd.DataFrame(rows, columns=["pid", "track_uri", "title_score"])
