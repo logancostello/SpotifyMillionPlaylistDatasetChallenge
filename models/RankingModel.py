@@ -2,6 +2,7 @@ from lightgbm import LGBMClassifier
 import lightgbm as lgb
 import pandas as pd
 import numpy as np
+import duckdb as db
 
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning, module="lightgbm")
@@ -29,7 +30,9 @@ class RankingModel:
             "n_album_tracks_in_playlist",
             "track_pop_count",
             "artist_pop_count",
-            "album_pop_count"
+            "album_pop_count",
+            "same_artist_as_last",
+            "same_album_as_last"
         ]
 
     def generate_candidates(self, playlist_metadata, playlist_contents, playlist_holdouts, track_metadata):
@@ -42,14 +45,37 @@ class RankingModel:
 
         return candidates
 
-    def build_features(self, candidates, playlist_metadata, train_contents, track_metadata, feature_contents):
-        candidates = candidates.merge(playlist_metadata[["pid", "num_samples", "has_title", "random_order"]], on="pid")
-        candidates["has_title"] = candidates["has_title"].astype(bool)
-        candidates["random_order"] = candidates["random_order"].astype(bool)
+    def build_features(self, candidates, playlist_metadata, playlist_contents, track_metadata, feature_contents):
+        # Add playlist level data
+        if not playlist_contents.empty:
+            last_tracks = db.sql("""
+                SELECT c.pid, c.track_uri as last_track, tm.artist_uri as last_artist, tm.album_uri as last_album
+                FROM (
+                    SELECT pid, track_uri,
+                        ROW_NUMBER() OVER (PARTITION BY pid ORDER BY position DESC) as rn
+                    FROM playlist_contents
+                ) c
+                JOIN track_metadata tm
+                ON c.track_uri = tm.track_uri
+                WHERE rn = 1
+            """).df()
+
+            playlist_metadata = playlist_metadata.merge(last_tracks, on="pid", how="left")
+
+        if "last_artist" not in playlist_metadata.columns:
+            playlist_metadata["last_artist"] = np.nan
+            playlist_metadata["last_album"] = np.nan
 
         candidates = candidates.merge(track_metadata[["track_uri", "artist_uri", "album_uri"]], on="track_uri")
-        train_contents_enriched = (
-            train_contents[["pid", "track_uri"]]
+        candidates = candidates.merge(playlist_metadata[["pid", "num_samples", "has_title", "random_order", "last_artist", "last_album"]], on="pid")
+        candidates["has_title"] = candidates["has_title"].astype(bool)
+        candidates["random_order"] = candidates["random_order"].astype(bool)
+        candidates["same_artist_as_last"] = (candidates["artist_uri"] == candidates["last_artist"]).fillna(False)
+        candidates["same_album_as_last"] = (candidates["album_uri"] == candidates["last_album"]).fillna(False)
+
+        # Get artist and album of each track
+        playlist_contents_enriched = (
+            playlist_contents[["pid", "track_uri"]]
             .merge(track_metadata[["track_uri", "artist_uri", "album_uri"]], on="track_uri")
         )
         feature_contents_enriched = (
@@ -57,14 +83,15 @@ class RankingModel:
             .merge(track_metadata[["track_uri", "artist_uri", "album_uri"]], on="track_uri")
         )
 
+        # Get counts of artist and album in playlist 
         artist_counts = (
-            train_contents_enriched
+            playlist_contents_enriched
             .groupby(["pid", "artist_uri"])
             .size()
             .reset_index(name="n_artist_tracks_in_playlist")
         )
         album_counts = (
-            train_contents_enriched
+            playlist_contents_enriched
             .groupby(["pid", "album_uri"])
             .size()
             .reset_index(name="n_album_tracks_in_playlist")
@@ -75,7 +102,8 @@ class RankingModel:
         candidates["n_artist_tracks_in_playlist"] = candidates["n_artist_tracks_in_playlist"].fillna(0)
         candidates["n_album_tracks_in_playlist"] = candidates["n_album_tracks_in_playlist"].fillna(0)
 
-        filtered_enriched_feature_contents = feature_contents_enriched[feature_contents_enriched["track_uri"].isin(train_contents_enriched["track_uri"])]
+        # Get popularity of each candidate at song, artist, and album level
+        filtered_enriched_feature_contents = feature_contents_enriched[feature_contents_enriched["track_uri"].isin(playlist_contents_enriched["track_uri"])]
         track_pop_count = (
             filtered_enriched_feature_contents
             .groupby("track_uri")
