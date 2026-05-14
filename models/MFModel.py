@@ -88,6 +88,15 @@ class MFModel:
         self.trained = True
         self.save()
 
+    def fold_in_user(self, track_uris_in_playlist):
+        indices = [
+            self.track_uri_to_idx[uri]
+            for uri in track_uris_in_playlist
+            if uri in self.track_uri_to_idx
+        ]
+        if not indices:
+            return None
+        return self.model.item_factors[indices].mean(axis=0)
 
     def predict(self, playlist_metadata, playlist_contents, track_metadata, n_recs, g_num):
         pids = playlist_metadata["pid"].values
@@ -114,15 +123,40 @@ class MFModel:
             }))
 
         if cold_pids:
-            global_scores = np.array(self.interactions.sum(axis=0)).flatten()
-            top_global    = np.argsort(global_scores)[::-1][:n_recs]
-            top_uris      = np.vectorize(self.idx_to_track_uri.get)(top_global)
-            top_scores    = global_scores[top_global]
-            dfs.append(pd.DataFrame({
-                "pid":            np.repeat(cold_pids, n_recs),
-                "prediction_num": np.tile(np.arange(n_recs), len(cold_pids)),
-                "track_uri":      np.tile(top_uris, len(cold_pids)),
-                "mf_score":       np.tile(top_scores, len(cold_pids)),
-            }))
+            cold_contents = playlist_contents[playlist_contents["pid"].isin(cold_pids)]
+
+            for pid in cold_pids:
+                seed_uris = cold_contents[cold_contents["pid"] == pid]["track_uri"].tolist()
+                user_vec = self.fold_in_user(seed_uris)
+
+                if user_vec is None:
+                    # Truly empty playlist — fall back to global popularity
+                    global_scores = np.array(self.interactions.sum(axis=0)).flatten()
+                    top_global = np.argsort(global_scores)[::-1][:n_recs]
+                    top_uris = np.vectorize(self.idx_to_track_uri.get)(top_global)
+                    top_scores = global_scores[top_global]
+                    dfs.append(pd.DataFrame({
+                        "pid":            [pid] * n_recs,
+                        "prediction_num": np.arange(n_recs),
+                        "track_uri":      top_uris,
+                        "mf_score":       top_scores,
+                    }))
+                else:
+                    scores = self.model.item_factors @ user_vec
+                    seed_indices = {
+                        self.track_uri_to_idx[uri]
+                        for uri in seed_uris
+                        if uri in self.track_uri_to_idx
+                    }
+                    scores[list(seed_indices)] = -np.inf
+
+                    top_indices = np.argsort(scores)[::-1][:n_recs]
+                    top_uris = np.vectorize(self.idx_to_track_uri.get)(top_indices)
+                    dfs.append(pd.DataFrame({
+                        "pid":            [pid] * n_recs,
+                        "prediction_num": np.arange(n_recs),
+                        "track_uri":      top_uris,
+                        "mf_score":       scores[top_indices],
+                    }))
 
         return pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame(columns=["pid", "prediction_num", "track_uri", "mf_score"])
