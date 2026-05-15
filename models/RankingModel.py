@@ -37,18 +37,89 @@ class RankingModel:
             "title_score"
         ]
 
-    def generate_candidates(self, playlist_metadata, playlist_contents, playlist_holdouts, track_metadata):
-        print("Generating candidates for training...")
+    def generate_candidates(self, playlist_metadata, playlist_contents, track_metadata):
+        print("Generating candidates...")
         candidates = self.mf_model.predict(playlist_metadata, playlist_contents, track_metadata, n_recs=500, g_num=None)
 
-        holdouts_flagged = playlist_holdouts[["pid", "track_uri"]].assign(label=1)
-        candidates = candidates.merge(holdouts_flagged, on=["pid", "track_uri"], how="left")
-        candidates["label"] = candidates["label"].fillna(0).astype(np.int8)
+        if not playlist_contents.empty:
+            # Enrich playlist contents with artist info
+            enriched = playlist_contents[["pid", "track_uri"]].merge(
+                track_metadata[["track_uri", "artist_uri"]], on="track_uri"
+            )
+
+            # Global track popularity
+            track_popularity = (
+                playlist_contents.groupby("track_uri")
+                .size()
+                .reset_index(name="global_pop")
+            )
+
+            # All tracks per artist ranked by popularity
+            artist_track_pool = (
+                track_metadata[["track_uri", "artist_uri"]]
+                .merge(track_popularity, on="track_uri", how="left")
+                .fillna({"global_pop": 0})
+                .sort_values("global_pop", ascending=False)
+            )
+            # Rank each track within its artist by popularity
+            artist_track_pool["artist_track_rank"] = (
+                artist_track_pool.groupby("artist_uri")["global_pop"]
+                .rank(ascending=False, method="first")
+                .astype(int)
+            )
+
+            # Compute per-artist budget
+            artist_counts = (
+                enriched.groupby(["pid", "artist_uri"])
+                .size()
+                .reset_index(name="n_in_playlist")
+            )
+            playlist_sizes = enriched.groupby("pid").size().reset_index(name="playlist_len")
+            artist_counts = artist_counts.merge(playlist_sizes, on="pid")
+            artist_counts["artist_budget"] = (
+                (artist_counts["n_in_playlist"] / artist_counts["playlist_len"] * 100)
+                .round()
+                .astype(int)
+                .clip(lower=1)
+            )
+
+            # Cross join artists+budgets with their track pool, keep only tracks within budget
+            artist_candidates = (
+                artist_counts[["pid", "artist_uri", "artist_budget"]]
+                .merge(artist_track_pool[["track_uri", "artist_uri", "artist_track_rank"]], on="artist_uri")
+                .query("artist_track_rank <= artist_budget")
+            )
+
+            # Drop tracks already in the playlist
+            existing_tracks = enriched[["pid", "track_uri"]].assign(in_playlist=True)
+            artist_candidates = (
+                artist_candidates
+                .merge(existing_tracks, on=["pid", "track_uri"], how="left")
+                .query("in_playlist.isna()")
+                .drop(columns=["in_playlist"])
+            )
+
+            # Drop tracks already in MF candidates
+            existing_candidates = candidates[["pid", "track_uri"]].assign(in_mf=True)
+            artist_candidates = (
+                artist_candidates
+                .merge(existing_candidates, on=["pid", "track_uri"], how="left")
+                .query("in_mf.isna()")
+                .drop(columns=["in_mf"])
+            )
+
+            artist_candidates = (
+                artist_candidates[["pid", "track_uri"]]
+                .assign(mf_score=0.0)
+            )
+
+            candidates = pd.concat([candidates, artist_candidates], ignore_index=True)
 
         return candidates
 
     def build_features(self, candidates, playlist_metadata, playlist_contents, track_metadata, feature_contents):
         # Add playlist level data
+        print("Building features...")
         if not playlist_contents.empty:
             last_tracks = db.sql("""
                 SELECT c.pid, c.track_uri as last_track, tm.artist_uri as last_artist, tm.album_uri as last_album
@@ -141,7 +212,12 @@ class RankingModel:
         if not self.mf_model.trained:
             raise RuntimeError("MF model not trained yet")
 
-        candidates = self.generate_candidates(playlist_metadata, playlist_contents, playlist_holdouts, track_metadata)
+        candidates = self.generate_candidates(playlist_metadata, playlist_contents, track_metadata)
+
+        holdouts_flagged = playlist_holdouts[["pid", "track_uri"]].assign(label=1)
+        candidates = candidates.merge(holdouts_flagged, on=["pid", "track_uri"], how="left")
+        candidates["label"] = candidates["label"].fillna(0).astype(np.int8)
+
         candidates = self.build_features(candidates, playlist_metadata, playlist_contents, track_metadata, feature_playlist_contents)
 
         pids = candidates["pid"].unique()
@@ -161,7 +237,7 @@ class RankingModel:
         self.trained = True
 
     def predict(self, playlist_metadata, playlist_contents, track_metadata, n_recs, g_num, feature_playlist_metadata, feature_playlist_contents):
-        candidates = self.mf_model.predict(playlist_metadata, playlist_contents, track_metadata, n_recs=500, g_num=None)
+        candidates = self.generate_candidates(playlist_metadata, playlist_contents, track_metadata)
         candidates = self.build_features(candidates, playlist_metadata, playlist_contents, track_metadata, feature_playlist_contents)
 
         candidates["score"] = self.classifier.predict_proba(candidates[self.features])[:, 1]
