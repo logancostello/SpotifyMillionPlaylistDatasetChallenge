@@ -42,33 +42,28 @@ class RankingModel:
         candidates = self.mf_model.predict(playlist_metadata, playlist_contents, track_metadata, n_recs=500, g_num=None)
 
         if not playlist_contents.empty:
-            # Enrich playlist contents with artist info
             enriched = playlist_contents[["pid", "track_uri"]].merge(
                 track_metadata[["track_uri", "artist_uri"]], on="track_uri"
             )
 
-            # Global track popularity
             track_popularity = (
                 playlist_contents.groupby("track_uri")
                 .size()
                 .reset_index(name="global_pop")
             )
 
-            # All tracks per artist ranked by popularity
             artist_track_pool = (
                 track_metadata[["track_uri", "artist_uri"]]
                 .merge(track_popularity, on="track_uri", how="left")
                 .fillna({"global_pop": 0})
                 .sort_values("global_pop", ascending=False)
             )
-            # Rank each track within its artist by popularity
             artist_track_pool["artist_track_rank"] = (
                 artist_track_pool.groupby("artist_uri")["global_pop"]
                 .rank(ascending=False, method="first")
                 .astype(int)
             )
 
-            # Compute per-artist budget
             artist_counts = (
                 enriched.groupby(["pid", "artist_uri"])
                 .size()
@@ -83,14 +78,12 @@ class RankingModel:
                 .clip(lower=1)
             )
 
-            # Cross join artists+budgets with their track pool, keep only tracks within budget
             artist_candidates = (
                 artist_counts[["pid", "artist_uri", "artist_budget"]]
                 .merge(artist_track_pool[["track_uri", "artist_uri", "artist_track_rank"]], on="artist_uri")
                 .query("artist_track_rank <= artist_budget")
             )
 
-            # Drop tracks already in the playlist
             existing_tracks = enriched[["pid", "track_uri"]].assign(in_playlist=True)
             artist_candidates = (
                 artist_candidates
@@ -99,7 +92,6 @@ class RankingModel:
                 .drop(columns=["in_playlist"])
             )
 
-            # Drop tracks already in MF candidates
             existing_candidates = candidates[["pid", "track_uri"]].assign(in_mf=True)
             artist_candidates = (
                 artist_candidates
@@ -108,9 +100,9 @@ class RankingModel:
                 .drop(columns=["in_mf"])
             )
 
-            artist_candidates = (
+            artist_candidates = self.mf_model.score_candidates(
+                playlist_contents,
                 artist_candidates[["pid", "track_uri"]]
-                .assign(mf_score=0.0)
             )
 
             candidates = pd.concat([candidates, artist_candidates], ignore_index=True)

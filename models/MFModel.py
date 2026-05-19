@@ -160,3 +160,35 @@ class MFModel:
                     }))
 
         return pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame(columns=["pid", "prediction_num", "track_uri", "mf_score"])
+    
+    def score_candidates(self, playlist_contents, candidates):
+        pids = candidates["pid"].unique()
+        warm_pids = [pid for pid in pids if pid in self.pid_to_idx]
+        cold_pids = [pid for pid in pids if pid not in self.pid_to_idx]
+
+        user_vecs = {}
+        for pid in warm_pids:
+            idx = self.pid_to_idx[pid]
+            user_vecs[pid] = self.model.user_factors[idx]
+        for pid in cold_pids:
+            seed_uris = playlist_contents[playlist_contents["pid"] == pid]["track_uri"].tolist()
+            vec = self.fold_in_user(seed_uris)
+            if vec is not None:
+                user_vecs[pid] = vec
+
+        scored = candidates.copy()
+        scored["item_idx"] = scored["track_uri"].map(self.track_uri_to_idx)
+
+        known_mask = scored["item_idx"].notna() & scored["pid"].isin(user_vecs)
+
+        known = scored[known_mask].copy()
+        known["item_idx"] = known["item_idx"].astype(int)
+
+        user_mat = np.stack(known["pid"].map(user_vecs).values)       
+        item_mat = self.model.item_factors[known["item_idx"].values]  
+        known["mf_score"] = (user_mat * item_mat).sum(axis=1)
+
+        scored.loc[known_mask, "mf_score"] = known["mf_score"].values
+        scored["mf_score"] = scored["mf_score"].fillna(0.0)
+
+        return scored[["pid", "track_uri", "mf_score"]]
