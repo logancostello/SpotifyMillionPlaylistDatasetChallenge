@@ -37,7 +37,7 @@ class RankingModel:
             "title_score"
         ]
 
-    def generate_candidates(self, playlist_metadata, playlist_contents, track_metadata):
+    def generate_candidates(self, playlist_metadata, playlist_contents, track_metadata, feature_contents):
         print("Generating candidates...")
         candidates = self.mf_model.predict(playlist_metadata, playlist_contents, track_metadata, n_recs=500, g_num=None)
 
@@ -47,7 +47,7 @@ class RankingModel:
             )
 
             track_popularity = (
-                playlist_contents.groupby("track_uri")
+                feature_contents.groupby("track_uri")
                 .size()
                 .reset_index(name="global_pop")
             )
@@ -204,7 +204,7 @@ class RankingModel:
         if not self.mf_model.trained:
             raise RuntimeError("MF model not trained yet")
 
-        candidates = self.generate_candidates(playlist_metadata, playlist_contents, track_metadata)
+        candidates = self.generate_candidates(playlist_metadata, playlist_contents, track_metadata, feature_playlist_contents)
 
         holdouts_flagged = playlist_holdouts[["pid", "track_uri"]].assign(label=1)
         candidates = candidates.merge(holdouts_flagged, on=["pid", "track_uri"], how="left")
@@ -229,7 +229,7 @@ class RankingModel:
         self.trained = True
 
     def predict(self, playlist_metadata, playlist_contents, track_metadata, n_recs, g_num, feature_playlist_metadata, feature_playlist_contents):
-        candidates = self.generate_candidates(playlist_metadata, playlist_contents, track_metadata)
+        candidates = self.generate_candidates(playlist_metadata, playlist_contents, track_metadata, feature_playlist_contents)
         candidates = self.build_features(candidates, playlist_metadata, playlist_contents, track_metadata, feature_playlist_contents)
 
         candidates["score"] = self.classifier.predict_proba(candidates[self.features])[:, 1]
