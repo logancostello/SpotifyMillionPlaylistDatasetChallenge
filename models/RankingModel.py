@@ -34,7 +34,10 @@ class RankingModel:
             "album_pop_count",
             "same_artist_as_last",
             "same_album_as_last",
-            "title_score"
+            "title_score",
+            "duration_zscore",
+            "playlist_duration_mean",
+            "playlist_duration_std"
         ]
 
     def generate_candidates(self, playlist_metadata, playlist_contents, track_metadata, feature_contents):
@@ -141,7 +144,7 @@ class RankingModel:
         # Get artist and album of each track
         playlist_contents_enriched = (
             playlist_contents[["pid", "track_uri"]]
-            .merge(track_metadata[["track_uri", "artist_uri", "album_uri"]], on="track_uri")
+            .merge(track_metadata[["track_uri", "artist_uri", "album_uri", "duration_ms"]], on="track_uri")
         )
         feature_contents_enriched = (
             feature_contents[["pid", "track_uri"]]
@@ -194,6 +197,25 @@ class RankingModel:
         candidates["track_pop_count"] = candidates["track_pop_count"].fillna(0)
         candidates["artist_pop_count"] = candidates["artist_pop_count"].fillna(0)
         candidates["album_pop_count"] = candidates["album_pop_count"].fillna(0)
+
+        # get duration features
+        playlist_duration_stats = (
+            playlist_contents_enriched
+            .groupby("pid")["duration_ms"]
+            .agg(
+                playlist_duration_mean="mean",
+                playlist_duration_std="std"
+            )
+            .reset_index()
+        )
+
+        candidates = candidates.merge(playlist_duration_stats, on="pid",how="left")
+        candidates = candidates.merge(track_metadata[["track_uri", "duration_ms"]], on="track_uri", how="left")
+        candidates["duration_zscore"] = (
+            (candidates["duration_ms"] - candidates["playlist_duration_mean"])
+            / candidates["playlist_duration_std"]
+        )
+        candidates["duration_zscore"] = (candidates["duration_zscore"].replace([np.inf, -np.inf], 0).fillna(0))
 
         # Add title based features
         candidates = candidates.merge(self.title_model.score_tracks(playlist_metadata, candidates), on=['pid', 'track_uri'])
