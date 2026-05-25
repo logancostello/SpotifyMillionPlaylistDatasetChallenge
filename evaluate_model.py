@@ -82,8 +82,8 @@ mf_model = MFModel()
 ranking_model = RankingModel(mf_model, title_embedding_model)
 
 train_models = [
-    # global_pop_model,
-    # artist_pop_model,
+    global_pop_model,
+    artist_pop_model,
     title_embedding_model,
     # artist_title_model,
     mf_model,
@@ -91,11 +91,11 @@ train_models = [
 ]
 
 test_models = [
-    # global_pop_model,
-    # artist_pop_model,
-    # title_embedding_model,
+    global_pop_model,
+    artist_pop_model,
+    title_embedding_model,
     # artist_title_model,
-    # mf_model,
+    mf_model,
     ranking_model
 ]
 

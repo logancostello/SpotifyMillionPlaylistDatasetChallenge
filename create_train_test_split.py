@@ -3,8 +3,8 @@ import pandas as pd
 import math
 
 NUM_TRAIN_PLAYLISTS = 2500
-NUM_TEST_PLAYLISTS = 250
-SEED = 123
+NUM_TEST_PLAYLISTS = 1000
+SEED = 123456789
 
 def get_empty_embedding(playlist_metadata):
     return [0] * playlist_metadata["title_bert_embeddings"].apply(lambda x: len(x)).max()
