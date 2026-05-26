@@ -3,6 +3,51 @@
 ## Introduction
 I estimate that I would have placed **10th (top 6%)** in the Spotify Million Playlist Dataset Challenge. I achieved these results by building a two stage recommendation system that combines matrix factorization, BERT embeddings, and other features to recommend tracks to add to existing playlists on Spotify. 
 
+## Example Recommendations
+Note that the dataset only contains songs released before 2018.
+
+### Example 1
+**Title:** "Throwbacks!"
+
+**Contents:**
+1. Replay by Iyaz
+2. Buy U a Drank (Shawty Snappin') by T-Pain
+3. Promiscuous by Nelly Furtado
+4. Kiss Me Thru The Phone by Soulja Boy
+5. Hollaback Girl by Gwen Stefani
+
+**Top 5 Recommendations:**
+1. Ignition - Remix	by R. Kelly
+2. Gold Digger by Kanye West
+3. Low (feat T-Pain) by Flo Rida
+4. Yeah! by Usher
+5. It Wasn't Me	by Shaggy
+   
+### Example 2
+**Title:** "tis the season"
+
+**Contents:** n/a
+
+**Top 5 Recommendations:**
+1. All I Want for Christmas Is You by Mariah Carey
+2. It's Beginning To Look A Lot Like Christmas by Michael Bublé
+3. The Christmas Song (Merry Christmas To You) by Nat King Cole
+4. Rockin' Around The Christmas Tree - Single Version by Brenda Lee
+5. Holly Jolly Christmas by Michael Bublé
+
+### Example 3
+**Title:** n/a
+
+**Contents:**
+1. The Killchain by Bolt Thrower
+
+**Top 5 Recommendations:**
+1. Anti-Tank (Dead Armour) by Bolt Thrower
+2. When Cannons Fade by Bolt Thrower
+3. At First Light by Bolt Thrower
+4. Salvo by Bolt Thrower
+5. Lament by Bolt Thrower
+
 ## Challenge Overview
 The Spotify Million Playlist Dataset Challenge tests participants abilities to build recommendation systems specifically designed for playlist continuation. Participants must use the titles and track contents of 1,000,000 playlists to recommend 500 tracks to add to 1,000 playlists of each of the following ten categories:
 1. Title Only
